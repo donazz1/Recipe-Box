@@ -12,17 +12,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --sun:#E8B33D;
-    --sky:#4A6FA5;
-    --mint:#6B8362;
-    --tangerine:#C1602D;
-    --grape:#8B5E3C;
-    --berry:#BD6B78;
-    --ink:#2B2B26;
+    --sun:#F2A93B;
+    --sky:#3D74C4;
+    --mint:#4C9159;
+    --tangerine:#E0622A;
+    --grape:#8A4B73;
+    --berry:#E0607A;
+    --ink:#241F1A;
     --ink-soft:#7A7468;
-    --cream:#FAF7F2;
+    --cream:#FBF8F2;
     --card:#FFFFFF;
-    --line:#EAE3D5;
+    --line:#E8DFC9;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
@@ -35,10 +35,20 @@
     color:var(--ink);
     font-family:'Nunito',sans-serif;
     min-height:100vh;
-    padding-bottom:86px;
+    padding-bottom:110px;
   }
   .screen{ display:none; max-width:760px; margin:0 auto; padding:22px 18px 40px; }
   .screen.active{ display:block; }
+  #screen-home{ padding-top:0; }
+
+  .sticky-head{
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:var(--cream);
+    padding:22px 0 14px;
+    margin-bottom:6px;
+  }
 
   /* ---------- Header ---------- */
   .topbar{
@@ -302,14 +312,16 @@
 
 <!-- HOME -->
 <div class="screen active" id="screen-home">
-  <div class="topbar">
-    <div class="greet">
-      <h1>Recipe Box</h1>
-      <p id="homeSub">Protein-rich recipes at your fingertips</p>
+  <div class="sticky-head">
+    <div class="topbar">
+      <div class="greet">
+        <h1>Recipe Box</h1>
+        <p id="homeSub">Protein-rich recipes at your fingertips</p>
+      </div>
+      <div class="sun-badge"><span>💪</span></div>
     </div>
-    <div class="sun-badge"><span>💪</span></div>
+    <div class="tabs" id="tabs"></div>
   </div>
-  <div class="tabs" id="tabs"></div>
   <div class="grid" id="grid"></div>
 </div>
 
@@ -395,7 +407,7 @@ const CAT_COLOR = {
   Snack:"var(--grape)", Dessert:"var(--berry)", Other:"var(--sky)"
 };
 const CAT_TEXT_ON = {
-  Breakfast:"#4A3A12", Lunch:"#fff", Dinner:"#fff", Snack:"#fff", Dessert:"#fff", Other:"#fff"
+  Breakfast:"#4A3410", Lunch:"#fff", Dinner:"#fff", Snack:"#fff", Dessert:"#fff", Other:"#fff"
 };
 
 let recipes = [];
@@ -575,7 +587,19 @@ function render(){
       render();
     };
     card.addEventListener('click', ()=>{
-      card.querySelector('.expand').classList.toggle('open');
+      const exp = card.querySelector('.expand');
+      const opening = !exp.classList.contains('open');
+      exp.classList.toggle('open');
+      if(opening){
+        requestAnimationFrame(()=>{
+          const navHeight = 86;
+          const rect = exp.getBoundingClientRect();
+          const visibleBottom = window.innerHeight - navHeight;
+          if(rect.bottom > visibleBottom){
+            window.scrollBy({ top: rect.bottom - visibleBottom + 16, behavior:'smooth' });
+          }
+        });
+      }
     });
     card.querySelector('.del').onclick = async (e)=>{
       e.stopPropagation();
