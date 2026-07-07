@@ -855,6 +855,7 @@ function normalize(r){
   if(r.categories.length===0) r.categories = ["Other"];
   if(typeof r.favorite !== 'boolean') r.favorite = false;
   if(!Array.isArray(r.qualifiers)) r.qualifiers = [];
+  if(typeof r.macrosEstimated !== 'boolean') r.macrosEstimated = false;
   return r;
 }
 
@@ -916,6 +917,7 @@ function render(){
         <div><div class="val">${r.fat ?? '–'}${r.fat!=null?'g':''}</div><div class="lab">Fat</div></div>
         <div><div class="val">${r.carbs ?? '–'}${r.carbs!=null?'g':''}</div><div class="lab">Carbs</div></div>
       </div>
+      ${r.macrosEstimated ? `<div class="qualifiers" style="margin-bottom:8px;">~ estimated from ingredients</div>` : ''}
       ${qualHtml}
       <div class="expand">
         ${ingredientsHtml ? `<h4>Ingredients</h4><ul>${ingredientsHtml}</ul>` : ''}
@@ -1009,8 +1011,8 @@ async function parseAndAdd(rawInput){
     }
     setStatus("Reading your recipe…");
     const system = `You extract recipes into strict JSON. Output ONLY a JSON object, no markdown fences, no preamble. Schema:
-{"title":string,"categories":array of 1-2 values from ["Breakfast","Lunch","Dinner","Snack","Dessert","Other"] (pick the best-fitting one or two, ordered by relevance),"qualifiers":array of up to 3 short scannable tags like effort ("Quick And Easy"), serving type ("Single Serve","Meal Prep","Serves 4"), and diet ("Vegetarian","High Protein","Low Carb") — only include ones you can confidently infer,"serving":string,"calories":number|null,"protein":number|null,"fat":number|null,"carbs":number|null,"ingredients":string[],"instructions":string[]}
-Keep ingredient/instruction strings concise, one item each. If nutrition values aren't given, use null.`;
+{"title":string,"categories":array of 1-2 values from ["Breakfast","Lunch","Dinner","Snack","Dessert","Other"] (pick the best-fitting one or two, ordered by relevance),"qualifiers":array of up to 3 short scannable tags like effort ("Quick And Easy"), serving type ("Single Serve","Meal Prep","Serves 4"), and diet ("Vegetarian","High Protein","Low Carb") — only include ones you can confidently infer,"serving":string,"calories":number|null,"protein":number|null,"fat":number|null,"carbs":number|null,"ingredients":string[],"instructions":string[],"macrosEstimated":boolean}
+Keep ingredient/instruction strings concise, one item each. If exact nutrition values are stated in the source, use those and set "macrosEstimated" to false. If they are NOT stated, calculate your own best estimate for calories/protein/fat/carbs per serving from the ingredients, their quantities, and standard nutrition knowledge — do not leave these as null just because the source didn't include them — and set "macrosEstimated" to true. Only use null for a value if there isn't enough information in the ingredients to estimate it at all (e.g. quantities are completely missing).`;
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -1131,6 +1133,7 @@ function buildRecipeDocHtml(r){
       <div><div class="val">${r.fat ?? '–'}${r.fat!=null?'g':''}</div><div class="lab">Fat</div></div>
       <div><div class="val">${r.carbs ?? '–'}${r.carbs!=null?'g':''}</div><div class="lab">Carbs</div></div>
     </div>
+    ${r.macrosEstimated ? `<div class="qual">~ estimated from ingredients, not lab-measured</div>` : ''}
     <div class="cols">
       <div>${ingredientsHtml ? `<h2>Ingredients</h2><ul>${ingredientsHtml}</ul>` : ''}</div>
       <div>${instructionsHtml ? `<h2>Instructions</h2><ol>${instructionsHtml}</ol>` : ''}</div>
