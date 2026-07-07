@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recipe Box</title>
+<link rel="manifest" href="data:application/json,{%22name%22:%22Recipe%20Box%22,%22display%22:%22standalone%22}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Recipe Box">
+<meta name="theme-color" content="#FFC93C">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sun:#FFC93C;
+    --sky:#3AA7FF;
+    --mint:#1FC8A3;
+    --tangerine:#FF6B4A;
+    --grape:#9D5CE0;
+    --berry:#FF477E;
+    --ink:#2A2140;
+    --ink-soft:#786F92;
+    --cream:#FFFCF5;
+    --card:#FFFFFF;
+    --line:#F1E9D6;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 15% -10%, #FFF3C4 0%, transparent 45%),
+      radial-gradient(circle at 110% 0%, #FFE0D0 0%, transparent 40%),
+      var(--cream);
+    color:var(--ink);
+    font-family:'Nunito',sans-serif;
+    min-height:100vh;
+    padding-bottom:86px;
+  }
+  .screen{ display:none; max-width:760px; margin:0 auto; padding:22px 18px 40px; }
+  .screen.active{ display:block; }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .topbar .greet h1{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:800;
+    font-size:26px;
+    margin:0;
+    line-height:1.1;
+  }
+  .topbar .greet p{
+    margin:2px 0 0;
+    font-size:13px;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
+  .sun-badge{
+    width:46px;height:46px;border-radius:50%;
+    background:conic-gradient(from 0deg, var(--sun), var(--tangerine), var(--berry), var(--grape), var(--sky), var(--mint), var(--sun));
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 14px rgba(255,180,50,0.35);
+    flex-shrink:0;
+  }
+  .sun-badge span{
+    width:36px;height:36px;border-radius:50%;background:var(--cream);
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+  }
+
+  /* ---------- Filter pills ---------- */
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+  .tab{
+    border:none;
+    padding:9px 16px;
+    border-radius:100px;
+    font-family:'Nunito',sans-serif;
+    font-size:13.5px;
+    font-weight:800;
+    cursor:pointer;
+    background:#F3EEE0;
+    color:var(--ink-soft);
+    transition:transform .1s, background .15s, color .15s;
+  }
+  .tab:active{ transform:scale(0.95); }
+  .tab.active{ color:#fff; }
+
+  /* ---------- Cards ---------- */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; }
+  .rcard{
+    position:relative;
+    background:var(--card);
+    border-radius:22px;
+    padding:18px 18px 16px;
+    box-shadow:0 4px 16px rgba(42,33,64,0.06);
+    cursor:pointer;
+    border:2px solid transparent;
+    transition:border-color .15s;
+  }
+  .rcard:active{ border-color:var(--line); }
+  .tagrow{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .catchip{
+    color:#fff; font-size:10.5px; font-weight:800; letter-spacing:0.02em;
+    text-transform:uppercase; padding:4px 11px; border-radius:100px;
+  }
+  .rcard h3{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    font-size:19px;
+    margin:0 0 10px;
+    line-height:1.2;
+    padding-right:34px;
+  }
+  .heart{
+    position:absolute; top:16px; right:14px;
+    background:none; border:none; font-size:22px; cursor:pointer;
+    line-height:1; padding:2px; transition:transform .15s;
+  }
+  .heart:active{ transform:scale(1.3); }
+  .macros{
+    display:grid; grid-template-columns:repeat(4,1fr);
+    background:#FAF6EA; border-radius:14px; padding:10px 4px; margin-bottom:10px;
+  }
+  .macros div{ text-align:center; }
+  .macros .val{ font-weight:800; font-size:15px; }
+  .macros .lab{ font-size:9.5px; color:var(--ink-soft); font-weight:700; text-transform:uppercase; letter-spacing:0.03em; }
+  .qualifiers{
+    font-size:12px; font-weight:700; color:var(--ink-soft);
+    margin-bottom:2px;
+  }
+  .qualifiers span:not(:last-child)::after{ content:" · "; }
+  .expand{ margin-top:12px; padding-top:12px; border-top:2px dashed var(--line); font-size:13.5px; color:var(--ink-soft); display:none; }
+  .expand.open{ display:block; }
+  .expand h4{ font-family:'Baloo 2',sans-serif; font-size:13px; margin:0 0 6px; color:var(--ink); }
+  .expand ul, .expand ol{ margin:0 0 12px; padding-left:18px; line-height:1.55; }
+  .expand ol{ margin-bottom:0; }
+  .del{
+    margin-top:12px; background:none; border:none; color:var(--berry);
+    font-weight:800; font-size:12px; cursor:pointer; padding:0;
+  }
+  .empty{ text-align:center; color:var(--ink-soft); padding:70px 20px; font-weight:700; }
+  .empty .big{ font-size:44px; display:block; margin-bottom:10px; }
+
+  /* ---------- Add screen ---------- */
+  .add-hero{ text-align:center; margin-bottom:18px; }
+  .add-hero .big{ font-size:48px; }
+  .add-hero h2{ font-family:'Baloo 2',sans-serif; font-size:24px; margin:6px 0 4px; }
+  .add-hero p{ color:var(--ink-soft); font-weight:700; font-size:13.5px; margin:0; }
+  .dropzone{
+    background:var(--card);
+    border:3px dashed #FFD98A;
+    border-radius:24px;
+    padding:20px;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{ border-color:var(--tangerine); background:#FFF3EC; }
+  .dropzone textarea{
+    width:100%; min-height:160px; border:none; background:transparent;
+    resize:vertical; font-family:'Nunito',sans-serif; font-size:15px;
+    color:var(--ink); outline:none; line-height:1.5; font-weight:600;
+  }
+  .dropzone textarea::placeholder{ color:#C9BFAE; font-weight:600; }
+  .add-btn{
+    width:100%;
+    background:linear-gradient(135deg, var(--tangerine), var(--berry));
+    color:#fff; border:none; padding:15px; border-radius:100px;
+    font-family:'Baloo 2',sans-serif; font-weight:700; font-size:16px;
+    cursor:pointer; margin-top:14px;
+    box-shadow:0 6px 18px rgba(255,90,90,0.3);
+  }
+  .add-btn:active{ transform:scale(0.98); }
+  .add-btn:disabled{ background:#D8CFC0; box-shadow:none; cursor:wait; }
+  .status{ text-align:center; font-weight:700; font-size:13px; color:var(--ink-soft); margin-top:10px; min-height:16px; }
+  .status.err{ color:var(--berry); }
+  .status.ok{ color:var(--mint); }
+
+  /* ---------- Profile ---------- */
+  .profile-card{
+    background:var(--card); border-radius:24px; padding:26px 20px; text-align:center;
+    box-shadow:0 4px 16px rgba(42,33,64,0.06); margin-bottom:16px;
+  }
+  .avatar{
+    width:76px;height:76px;border-radius:50%;margin:0 auto 12px;
+    background:conic-gradient(from 0deg, var(--sun), var(--tangerine), var(--berry), var(--grape), var(--sky), var(--mint), var(--sun));
+    display:flex;align-items:center;justify-content:center;
+  }
+  .avatar span{ width:66px;height:66px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:30px; }
+  .profile-card h2{ font-family:'Baloo 2',sans-serif; margin:0 0 2px; }
+  .profile-card p{ color:var(--ink-soft); font-weight:700; font-size:13px; margin:0 0 18px; }
+  .stat-row{ display:flex; gap:12px; }
+  .stat{ flex:1; background:#FAF6EA; border-radius:16px; padding:14px 8px; }
+  .stat .n{ font-family:'Baloo 2',sans-serif; font-size:22px; font-weight:700; }
+  .stat .l{ font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; }
+
+  /* ---------- Invite ---------- */
+  .invite-card{
+    background:linear-gradient(135deg,#FFF3C4,#FFE0D0);
+    border-radius:24px; padding:28px 22px; text-align:center; margin-bottom:16px;
+  }
+  .invite-card .big{ font-size:44px; }
+  .invite-card h2{ font-family:'Baloo 2',sans-serif; margin:8px 0 4px; }
+  .invite-card p{ color:var(--ink-soft); font-weight:700; font-size:13.5px; margin:0 0 18px; }
+  .invite-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .pill-btn{
+    border:none; padding:12px 20px; border-radius:100px; font-family:'Baloo 2',sans-serif;
+    font-weight:700; font-size:14px; cursor:pointer; color:#fff;
+  }
+  .pill-btn.share{ background:var(--sky); }
+  .pill-btn.copy{ background:var(--grape); }
+  .link-box{
+    margin-top:14px; background:#fff; border-radius:14px; padding:12px 14px;
+    font-size:12px; color:var(--ink-soft); font-weight:700; word-break:break-all;
+  }
+
+  /* ---------- Menu ---------- */
+  .menu-item{
+    display:flex; align-items:center; gap:14px;
+    background:var(--card); border-radius:18px; padding:16px 18px; margin-bottom:10px;
+    box-shadow:0 2px 8px rgba(42,33,64,0.05); font-weight:700; cursor:pointer;
+  }
+  .menu-item .ic{ font-size:20px; }
+  .menu-item.danger{ color:var(--berry); }
+
+  /* ---------- Bottom nav ---------- */
+  .navbar{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--card);
+    border-top:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-around;
+    padding:10px 8px calc(10px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 20px rgba(42,33,64,0.06);
+    z-index:10;
+  }
+  .navbtn{
+    background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    color:var(--ink-soft); font-family:'Nunito',sans-serif; font-weight:800; font-size:10px;
+    padding:4px 10px; border-radius:12px;
+  }
+  .navbtn .ic{ font-size:20px; }
+  .navbtn.active{ color:var(--tangerine); }
+  .navbtn.addbtn{
+    background:linear-gradient(135deg, var(--tangerine), var(--berry));
+    color:#fff; width:52px; height:52px; border-radius:50%;
+    margin-top:-26px; box-shadow:0 6px 16px rgba(255,90,90,0.4);
+    justify-content:center;
+  }
+  .navbtn.addbtn .ic{ font-size:26px; }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="topbar">
+    <div class="greet">
+      <h1>Recipe Box</h1>
+      <p id="homeSub">Your sunny little cookbook</p>
+    </div>
+    <div class="sun-badge"><span>☀️</span></div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- ADD -->
+<div class="screen" id="screen-add">
+  <div class="add-hero">
+    <div class="big">🍳</div>
+    <h2>Drop a recipe in</h2>
+    <p>Paste it, drag a file, whatever's easiest — I'll file it away.</p>
+  </div>
+  <div class="dropzone" id="dropzone">
+    <textarea id="input" placeholder="Paste any recipe here — ingredients, steps, macros, anything you've got..."></textarea>
+  </div>
+  <button class="add-btn" id="addBtn">✨ File this recipe</button>
+  <div class="status" id="status"></div>
+</div>
+
+<!-- PROFILE -->
+<div class="screen" id="screen-profile">
+  <div class="topbar"><div class="greet"><h1>Profile</h1></div></div>
+  <div class="profile-card">
+    <div class="avatar"><span>👤</span></div>
+    <h2 id="profileName">Don</h2>
+    <p>Recipe collector</p>
+    <div class="stat-row">
+      <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Recipes</div></div>
+      <div class="stat"><div class="n" id="statFav">0</div><div class="l">Favorites</div></div>
+      <div class="stat"><div class="n" id="statCats">0</div><div class="l">Categories</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- INVITE -->
+<div class="screen" id="screen-invite">
+  <div class="topbar"><div class="greet"><h1>Invite</h1></div></div>
+  <div class="invite-card">
+    <div class="big">🎉</div>
+    <h2>Share the Recipe Box</h2>
+    <p>Send this link to family or friends so they can peek at your collection.</p>
+    <div class="invite-actions">
+      <button class="pill-btn share" id="shareBtn">📤 Share link</button>
+      <button class="pill-btn copy" id="copyBtn">🔗 Copy link</button>
+    </div>
+    <div class="link-box" id="linkBox"></div>
+  </div>
+</div>
+
+<!-- MENU -->
+<div class="screen" id="screen-menu">
+  <div class="topbar"><div class="greet"><h1>Menu</h1></div></div>
+
+  <div class="profile-card" style="text-align:left; padding:20px;">
+    <h2 style="font-size:16px; margin-bottom:6px;">🔑 Anthropic API key</h2>
+    <p style="margin:0 0 12px; font-size:12.5px;">Needed so the app can read and file new recipes. Stored only on this device.</p>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." style="width:100%; padding:12px 14px; border-radius:12px; border:2px solid var(--line); font-family:'Nunito',sans-serif; font-size:14px; font-weight:700; margin-bottom:10px;">
+    <div style="display:flex; gap:8px;">
+      <button class="pill-btn copy" id="saveKeyBtn" style="flex:1;">Save key</button>
+      <button class="pill-btn share" id="clearKeyBtn" style="flex:1; background:#786F92;">Remove key</button>
+    </div>
+    <div class="status" id="keyStatus" style="text-align:left; margin-top:8px;"></div>
+  </div>
+
+  <div class="menu-item"><span class="ic">🏷️</span> Manage categories</div>
+  <div class="menu-item"><span class="ic">📤</span> Export all recipes</div>
+  <div class="menu-item"><span class="ic">🌙</span> Appearance</div>
+  <div class="menu-item danger" id="clearAllBtn"><span class="ic">🗑️</span> Clear all recipes</div>
+</div>
+
+<div class="navbar">
+  <button class="navbtn active" data-screen="home"><span class="ic">🏠</span>Home</button>
+  <button class="navbtn" data-screen="profile"><span class="ic">👤</span>Profile</button>
+  <button class="navbtn addbtn" data-screen="add"><span class="ic">＋</span></button>
+  <button class="navbtn" data-screen="invite"><span class="ic">🎉</span>Invite</button>
+  <button class="navbtn" data-screen="menu"><span class="ic">☰</span>Menu</button>
+</div>
+
+<script>
+const CATS = ["Breakfast","Lunch","Dinner","Snack","Dessert","Other"];
+const CAT_COLOR = {
+  Breakfast:"var(--sun)", Lunch:"var(--mint)", Dinner:"var(--tangerine)",
+  Snack:"var(--grape)", Dessert:"var(--berry)", Other:"var(--sky)"
+};
+const CAT_TEXT_ON = {
+  Breakfast:"#5A4400", Lunch:"#fff", Dinner:"#fff", Snack:"#fff", Dessert:"#fff", Other:"#fff"
+};
+
+let recipes = [];
+let activeFilter = "All";
+
+/* ---------- Local storage wrapper (mirrors the get/set/list/delete shape) ---------- */
+const NS = "rbox:";
+const db = {
+  async get(key){
+    const v = localStorage.getItem(NS + key);
+    return v === null ? null : { key, value: v };
+  },
+  async set(key, value){
+    localStorage.setItem(NS + key, value);
+    return { key, value };
+  },
+  async delete(key){
+    localStorage.removeItem(NS + key);
+    return { key, deleted: true };
+  },
+  async list(prefix){
+    const keys = [];
+    for(let i=0; i<localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith(NS + (prefix||''))){ keys.push(k.slice(NS.length)); }
+    }
+    return { keys };
+  }
+};
+
+function getApiKey(){ return localStorage.getItem('rbox_api_key') || ''; }
+function setApiKey(k){ localStorage.setItem('rbox_api_key', k); }
+function clearApiKey(){ localStorage.removeItem('rbox_api_key'); }
+
+const grid = document.getElementById('grid');
+const tabsEl = document.getElementById('tabs');
+const input = document.getElementById('input');
+const addBtn = document.getElementById('addBtn');
+const statusEl = document.getElementById('status');
+const dropzone = document.getElementById('dropzone');
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll('.navbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const target = btn.dataset.screen;
+    document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b===btn || (target==='add' && b.classList.contains('addbtn'))));
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById('screen-'+target).classList.add('active');
+    if(target === 'invite') setupInvite();
+    if(target === 'profile') updateProfile();
+  });
+});
+
+function setupInvite(){
+  const link = window.location.href;
+  document.getElementById('linkBox').textContent = link;
+  document.getElementById('shareBtn').onclick = async ()=>{
+    if(navigator.share){
+      try{ await navigator.share({title:'Recipe Box', text:'Check out my Recipe Box', url: link}); }catch(e){}
+    } else {
+      copyLink();
+    }
+  };
+  document.getElementById('copyBtn').onclick = copyLink;
+  function copyLink(){
+    navigator.clipboard.writeText(link).then(()=>{
+      const b = document.getElementById('copyBtn');
+      const old = b.textContent; b.textContent = '✅ Copied!';
+      setTimeout(()=> b.textContent = old, 1500);
+    });
+  }
+}
+
+function updateProfile(){
+  document.getElementById('statTotal').textContent = recipes.length;
+  document.getElementById('statFav').textContent = recipes.filter(r=>r.favorite).length;
+  const catSet = new Set();
+  recipes.forEach(r => (r.categories||[]).forEach(c=>catSet.add(c)));
+  document.getElementById('statCats').textContent = catSet.size;
+}
+
+document.getElementById('clearAllBtn').onclick = async ()=>{
+  if(!confirm('Clear every recipe? This can\'t be undone.')) return;
+  for(const r of recipes){ await db.delete(`recipe:${r.id}`); }
+  loadRecipes();
+};
+
+/* ---------- Data ---------- */
+function setStatus(msg, cls){
+  statusEl.textContent = msg || "";
+  statusEl.className = 'status' + (cls ? ' '+cls : '');
+}
+
+function normalize(r){
+  if(!r.categories){ r.categories = r.category ? [r.category] : ["Other"]; }
+  r.categories = r.categories.filter(c=>CATS.includes(c));
+  if(r.categories.length===0) r.categories = ["Other"];
+  if(typeof r.favorite !== 'boolean') r.favorite = false;
+  if(!Array.isArray(r.qualifiers)) r.qualifiers = [];
+  return r;
+}
+
+async function loadRecipes(){
+  try{
+    const list = await db.list('recipe:');
+    if(!list || !list.keys || list.keys.length === 0){ recipes = []; render(); return; }
+    const items = [];
+    for(const key of list.keys){
+      try{
+        const r = await db.get(key);
+        if(r && r.value) items.push(normalize(JSON.parse(r.value)));
+      }catch(e){}
+    }
+    items.sort((a,b)=> (b.addedAt||0) - (a.addedAt||0));
+    recipes = items;
+  }catch(e){ recipes = []; }
+  render();
+}
+
+function renderTabs(){
+  const cats = ["All", ...CATS];
+  tabsEl.innerHTML = '';
+  cats.forEach(c=>{
+    const btn = document.createElement('button');
+    const color = c==="All" ? "var(--ink)" : CAT_COLOR[c];
+    btn.className = 'tab' + (c===activeFilter ? ' active' : '');
+    btn.style.background = c===activeFilter ? color : '';
+    btn.textContent = c;
+    btn.onclick = ()=>{ activeFilter = c; render(); };
+    tabsEl.appendChild(btn);
+  });
+}
+
+function render(){
+  renderTabs();
+  const filtered = activeFilter === "All" ? recipes : recipes.filter(r => r.categories.includes(activeFilter));
+  grid.innerHTML = '';
+  if(filtered.length === 0){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span class="big">🍽️</span>${recipes.length===0 ? "Your box is empty — tap ＋ to file your first recipe." : "Nothing under <b>"+activeFilter+"</b> yet."}</div>`;
+    return;
+  }
+  filtered.forEach(r=>{
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    const chips = r.categories.map(c=>`<span class="catchip" style="background:${CAT_COLOR[c]};color:${CAT_TEXT_ON[c]}">${c}</span>`).join('');
+    const qualHtml = r.qualifiers.length ? `<div class="qualifiers">${r.qualifiers.map(q=>`<span>${escapeHtml(q)}</span>`).join('')}</div>` : '';
+    const ingredientsHtml = (r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
+    const instructionsHtml = (r.instructions||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
+    card.innerHTML = `
+      <button class="heart">${r.favorite ? '❤️' : '🤍'}</button>
+      <div class="tagrow">${chips}</div>
+      <h3>${escapeHtml(r.title||"Untitled")}</h3>
+      <div class="macros">
+        <div><div class="val">${r.calories ?? '–'}</div><div class="lab">Cal</div></div>
+        <div><div class="val">${r.protein ?? '–'}${r.protein!=null?'g':''}</div><div class="lab">Protein</div></div>
+        <div><div class="val">${r.fat ?? '–'}${r.fat!=null?'g':''}</div><div class="lab">Fat</div></div>
+        <div><div class="val">${r.carbs ?? '–'}${r.carbs!=null?'g':''}</div><div class="lab">Carbs</div></div>
+      </div>
+      ${qualHtml}
+      <div class="expand">
+        ${ingredientsHtml ? `<h4>Ingredients</h4><ul>${ingredientsHtml}</ul>` : ''}
+        ${instructionsHtml ? `<h4>Instructions</h4><ol>${instructionsHtml}</ol>` : ''}
+        <button class="del">Remove recipe</button>
+      </div>
+    `;
+    card.querySelector('.heart').onclick = async (e)=>{
+      e.stopPropagation();
+      r.favorite = !r.favorite;
+      await db.set(`recipe:${r.id}`, JSON.stringify(r), false);
+      render();
+    };
+    card.addEventListener('click', ()=>{
+      card.querySelector('.expand').classList.toggle('open');
+    });
+    card.querySelector('.del').onclick = async (e)=>{
+      e.stopPropagation();
+      await db.delete(`recipe:${r.id}`);
+      loadRecipes();
+    };
+    grid.appendChild(card);
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ---------- Add / parse ---------- */
+async function parseAndAdd(text){
+  if(!text || !text.trim()){ setStatus("Paste a recipe first.", 'err'); return; }
+  const apiKey = getApiKey();
+  if(!apiKey){
+    setStatus("Add your Anthropic API key in Menu → Settings first.", 'err');
+    return;
+  }
+  addBtn.disabled = true;
+  setStatus("Reading your recipe…");
+  try{
+    const system = `You extract recipes into strict JSON. Output ONLY a JSON object, no markdown fences, no preamble. Schema:
+{"title":string,"categories":array of 1-2 values from ["Breakfast","Lunch","Dinner","Snack","Dessert","Other"] (pick the best-fitting one or two, ordered by relevance),"qualifiers":array of up to 3 short scannable tags like effort ("Quick And Easy"), serving type ("Single Serve","Meal Prep","Serves 4"), and diet ("Vegetarian","High Protein","Low Carb") — only include ones you can confidently infer,"serving":string,"calories":number|null,"protein":number|null,"fat":number|null,"carbs":number|null,"ingredients":string[],"instructions":string[]}
+Keep ingredient/instruction strings concise, one item each. If nutrition values aren't given, use null.`;
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: system,
+        messages: [{role:"user", content: text}]
+      })
+    });
+    if(!response.ok){
+      const errText = await response.text().catch(function(){ return String(response.status); });
+      throw new Error("API error " + response.status + ": " + errText.slice(0,200));
+    }
+    const data = await response.json();
+    if(data.error){ throw new Error(data.error.message || "API returned an error"); }
+    const textBlock = (data.content || []).find(c => c.type === "text");
+    if(!textBlock || !textBlock.text) throw new Error("Empty response from model");
+    var raw = textBlock.text.trim();
+    var firstBrace = raw.indexOf('{');
+    var lastBrace = raw.lastIndexOf('}');
+    if(firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace){
+      throw new Error("No JSON object found in response: " + raw.slice(0,150));
+    }
+    var clean = raw.slice(firstBrace, lastBrace + 1);
+    var parsedRaw;
+    try{
+      parsedRaw = JSON.parse(clean);
+    }catch(parseErr){
+      throw new Error("Malformed JSON: " + parseErr.message);
+    }
+    const parsed = normalize(parsedRaw);
+    parsed.id = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
+    parsed.addedAt = Date.now();
+    await db.set(`recipe:${parsed.id}`, JSON.stringify(parsed), false);
+    input.value = '';
+    setStatus(`Filed under ${parsed.categories.join(' & ')} 🎉`, 'ok');
+    await loadRecipes();
+    setTimeout(()=>{
+      document.querySelector('.navbtn[data-screen="home"]').click();
+      setStatus("");
+    }, 900);
+  }catch(e){
+    console.error(e);
+    setStatus("Hiccup: " + (e && e.message ? e.message : "couldn't read that one") + " — try again?", 'err');
+  }finally{
+    addBtn.disabled = false;
+  }
+}
+
+addBtn.onclick = ()=> parseAndAdd(input.value);
+
+['dragover','dragenter'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+});
+['dragleave','drop'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); });
+});
+dropzone.addEventListener('drop', e=>{
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(file){
+    const reader = new FileReader();
+    reader.onload = ()=> { input.value = reader.result; };
+    reader.readAsText(file);
+  } else {
+    const text = e.dataTransfer.getData('text/plain');
+    if(text) input.value = text;
+  }
+});
+
+/* ---------- API key settings ---------- */
+const apiKeyInput = document.getElementById('apiKeyInput');
+const keyStatus = document.getElementById('keyStatus');
+
+function refreshKeyUI(){
+  const k = getApiKey();
+  apiKeyInput.value = k ? '••••••••••••' + k.slice(-4) : '';
+  keyStatus.textContent = k ? 'Key saved on this device.' : 'No key saved yet.';
+  keyStatus.className = 'status' + (k ? ' ok' : '');
+}
+
+document.getElementById('saveKeyBtn').onclick = ()=>{
+  const v = apiKeyInput.value.trim();
+  if(!v || v.startsWith('••••')){ keyStatus.textContent = 'Paste your full key first.'; keyStatus.className='status err'; return; }
+  setApiKey(v);
+  refreshKeyUI();
+};
+document.getElementById('clearKeyBtn').onclick = ()=>{
+  clearApiKey();
+  refreshKeyUI();
+};
+refreshKeyUI();
+
+loadRecipes();
+</script>
+</body>
+</html>
