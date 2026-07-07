@@ -150,7 +150,9 @@
   .expand h4{ font-family:'Fraunces',serif; font-size:13px; margin:0 0 6px; color:var(--ink); }
   .expand ul, .expand ol{ margin:0 0 12px; padding-left:18px; line-height:1.55; }
   .expand ol{ margin-bottom:0; }
-  .expand-actions{ display:flex; gap:14px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .expand-actions{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+  .act-btn{ width:100%; text-align:center; padding:13px 14px; font-size:13.5px; }
+  .del{ width:100%; text-align:center; padding:10px; margin-top:2px; }
   .pdf-btn{
     background:#FAF6EA; border:2px solid var(--line); color:var(--ink);
     font-weight:800; font-size:12.5px; padding:9px 14px; border-radius:100px; cursor:pointer;
@@ -374,6 +376,21 @@
   .cook-ing-list{ display:none; background:#FAF6EA; border-radius:16px; padding:14px 18px; margin-top:10px; max-height:150px; overflow:auto; }
   .cook-ing-list.open{ display:block; }
   .cook-ing-list ul{ margin:0; padding-left:18px; font-size:13px; line-height:1.6; }
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position:fixed; top:16px; left:50%; z-index:50;
+    transform:translateX(-50%) translateY(-30px);
+    background:var(--ink); color:#fff; padding:12px 10px 12px 18px; border-radius:100px;
+    display:flex; align-items:center; gap:10px; font-weight:700; font-size:13px;
+    opacity:0; pointer-events:none; transition:all .25s;
+    max-width:90vw; box-shadow:0 8px 24px rgba(0,0,0,0.25);
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  #toast .toast-action{
+    background:#fff; color:var(--ink); border:none; padding:7px 14px; border-radius:100px;
+    font-weight:800; font-size:12px; cursor:pointer; flex-shrink:0; white-space:nowrap;
+  }
 </style>
 </head>
 <body>
@@ -765,6 +782,7 @@ function render(){
         <div class="expand-actions">
           <button class="act-btn cook-btn">👨‍🍳 Cook Mode</button>
           <button class="act-btn grocery-btn">🛒 Add to list</button>
+          <button class="act-btn photo-attach-btn">📷 ${r.image ? 'Change photo' : 'Add photo'}</button>
           <button class="act-btn share-btn">📤 Share PDF</button>
           <button class="act-btn pdf-btn">🖨️ Print</button>
           <button class="del">Remove recipe</button>
@@ -787,6 +805,10 @@ function render(){
       e.stopPropagation();
       openCookMode(r);
     };
+    card.querySelector('.photo-attach-btn').onclick = (e)=>{
+      e.stopPropagation();
+      attachPhotoToRecipe(r);
+    };
     card.querySelector('.heart').onclick = async (e)=>{
       e.stopPropagation();
       r.favorite = !r.favorite;
@@ -799,7 +821,7 @@ function render(){
       exp.classList.toggle('open');
       if(opening){
         requestAnimationFrame(()=>{
-          const navHeight = 86;
+          const navHeight = 140;
           const rect = exp.getBoundingClientRect();
           const visibleBottom = window.innerHeight - navHeight;
           if(rect.bottom > visibleBottom){
@@ -974,6 +996,24 @@ function buildRecipeDocHtml(r){
   `;
 }
 
+function attachPhotoToRecipe(r){
+  const tempInput = document.createElement('input');
+  tempInput.type = 'file';
+  tempInput.accept = 'image/*';
+  tempInput.onchange = async ()=>{
+    const file = tempInput.files[0];
+    if(!file) return;
+    try{
+      const dataUrl = await compressImage(file);
+      r.image = dataUrl;
+      await db.set(`recipe:${r.id}`, JSON.stringify(r), false);
+      showToast('📷 Photo saved');
+      await loadRecipes();
+    }catch(e){ console.error(e); showToast('⚠️ Could not save that photo'); }
+  };
+  tempInput.click();
+}
+
 function printRecipe(r){
   document.getElementById('printArea').innerHTML = `<div class="pdf-doc">${buildRecipeDocHtml(r)}</div>`;
   window.print();
@@ -1010,16 +1050,38 @@ async function shareRecipePDF(r, btnEl){
 }
 
 /* ---------- Grocery list ---------- */
+function showToast(message, actionLabel, actionFn){
+  let toast = document.getElementById('toast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<span>${message}</span>` + (actionLabel ? `<button class="toast-action">${actionLabel}</button>` : '');
+  if(actionLabel && actionFn){
+    toast.querySelector('.toast-action').onclick = ()=>{ actionFn(); hideToast(); };
+  }
+  requestAnimationFrame(()=> toast.classList.add('show'));
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(hideToast, 4500);
+}
+function hideToast(){
+  const toast = document.getElementById('toast');
+  if(toast) toast.classList.remove('show');
+}
+
 async function addToGroceryList(r, btnEl){
   const origLabel = btnEl ? btnEl.textContent : '';
   if(btnEl){ btnEl.textContent = '⏳ Adding…'; btnEl.disabled = true; }
   try{
+    const count = (r.ingredients||[]).length;
     for(const ing of (r.ingredients||[])){
       const id = 'g' + Date.now() + Math.random().toString(36).slice(2,7);
       const item = { name: ing, checked: false, recipeTitle: r.title||'', addedAt: Date.now() };
       await db.set(`grocery:${id}`, JSON.stringify(item), false);
     }
     if(btnEl){ btnEl.textContent = '✅ Added!'; }
+    showToast(`🛒 ${count} item${count===1?'':'s'} added to your list`, 'View List', ()=> showScreen('grocery'));
   }catch(e){
     console.error(e);
     if(btnEl){ btnEl.textContent = '⚠️ Failed'; }
