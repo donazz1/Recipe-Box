@@ -8,29 +8,29 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Recipe Box">
-<meta name="theme-color" content="#FFC93C">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#C1602D">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --sun:#FFC93C;
-    --sky:#3AA7FF;
-    --mint:#1FC8A3;
-    --tangerine:#FF6B4A;
-    --grape:#9D5CE0;
-    --berry:#FF477E;
-    --ink:#2A2140;
-    --ink-soft:#786F92;
-    --cream:#FFFCF5;
+    --sun:#E8B33D;
+    --sky:#4A6FA5;
+    --mint:#6B8362;
+    --tangerine:#C1602D;
+    --grape:#8B5E3C;
+    --berry:#BD6B78;
+    --ink:#2B2B26;
+    --ink-soft:#7A7468;
+    --cream:#FAF7F2;
     --card:#FFFFFF;
-    --line:#F1E9D6;
+    --line:#EAE3D5;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
   body{
     margin:0;
     background:
-      radial-gradient(circle at 15% -10%, #FFF3C4 0%, transparent 45%),
-      radial-gradient(circle at 110% 0%, #FFE0D0 0%, transparent 40%),
+      radial-gradient(circle at 15% -10%, #F1EADA 0%, transparent 45%),
+      radial-gradient(circle at 110% 0%, #E9DDCB 0%, transparent 40%),
       var(--cream);
     color:var(--ink);
     font-family:'Nunito',sans-serif;
@@ -48,7 +48,7 @@
     margin-bottom:18px;
   }
   .topbar .greet h1{
-    font-family:'Baloo 2',sans-serif;
+    font-family:'Fraunces',serif;
     font-weight:800;
     font-size:26px;
     margin:0;
@@ -108,7 +108,7 @@
     text-transform:uppercase; padding:4px 11px; border-radius:100px;
   }
   .rcard h3{
-    font-family:'Baloo 2',sans-serif;
+    font-family:'Fraunces',serif;
     font-weight:700;
     font-size:19px;
     margin:0 0 10px;
@@ -135,7 +135,7 @@
   .qualifiers span:not(:last-child)::after{ content:" · "; }
   .expand{ margin-top:12px; padding-top:12px; border-top:2px dashed var(--line); font-size:13.5px; color:var(--ink-soft); display:none; }
   .expand.open{ display:block; }
-  .expand h4{ font-family:'Baloo 2',sans-serif; font-size:13px; margin:0 0 6px; color:var(--ink); }
+  .expand h4{ font-family:'Fraunces',serif; font-size:13px; margin:0 0 6px; color:var(--ink); }
   .expand ul, .expand ol{ margin:0 0 12px; padding-left:18px; line-height:1.55; }
   .expand ol{ margin-bottom:0; }
   .expand-actions{ display:flex; gap:14px; align-items:center; margin-top:12px; flex-wrap:wrap; }
@@ -155,11 +155,11 @@
   /* ---------- Add screen ---------- */
   .add-hero{ text-align:center; margin-bottom:18px; }
   .add-hero .big{ font-size:48px; }
-  .add-hero h2{ font-family:'Baloo 2',sans-serif; font-size:24px; margin:6px 0 4px; }
+  .add-hero h2{ font-family:'Fraunces',serif; font-size:24px; margin:6px 0 4px; }
   .add-hero p{ color:var(--ink-soft); font-weight:700; font-size:13.5px; margin:0; }
   .dropzone{
     background:var(--card);
-    border:3px dashed #FFD98A;
+    border:3px dashed #D9C6A3;
     border-radius:24px;
     padding:20px;
     transition:border-color .15s, background .15s;
@@ -175,7 +175,7 @@
     width:100%;
     background:linear-gradient(135deg, var(--tangerine), var(--berry));
     color:#fff; border:none; padding:15px; border-radius:100px;
-    font-family:'Baloo 2',sans-serif; font-weight:700; font-size:16px;
+    font-family:'Fraunces',serif; font-weight:700; font-size:16px;
     cursor:pointer; margin-top:14px;
     box-shadow:0 6px 18px rgba(255,90,90,0.3);
   }
@@ -196,24 +196,24 @@
     display:flex;align-items:center;justify-content:center;
   }
   .avatar span{ width:66px;height:66px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:30px; }
-  .profile-card h2{ font-family:'Baloo 2',sans-serif; margin:0 0 2px; }
+  .profile-card h2{ font-family:'Fraunces',serif; margin:0 0 2px; }
   .profile-card p{ color:var(--ink-soft); font-weight:700; font-size:13px; margin:0 0 18px; }
   .stat-row{ display:flex; gap:12px; }
   .stat{ flex:1; background:#FAF6EA; border-radius:16px; padding:14px 8px; }
-  .stat .n{ font-family:'Baloo 2',sans-serif; font-size:22px; font-weight:700; }
+  .stat .n{ font-family:'Fraunces',serif; font-size:22px; font-weight:700; }
   .stat .l{ font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; }
 
   /* ---------- Invite ---------- */
   .invite-card{
-    background:linear-gradient(135deg,#FFF3C4,#FFE0D0);
+    background:linear-gradient(135deg,#F3EEE1,#E4D5BC);
     border-radius:24px; padding:28px 22px; text-align:center; margin-bottom:16px;
   }
   .invite-card .big{ font-size:44px; }
-  .invite-card h2{ font-family:'Baloo 2',sans-serif; margin:8px 0 4px; }
+  .invite-card h2{ font-family:'Fraunces',serif; margin:8px 0 4px; }
   .invite-card p{ color:var(--ink-soft); font-weight:700; font-size:13.5px; margin:0 0 18px; }
   .invite-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .pill-btn{
-    border:none; padding:12px 20px; border-radius:100px; font-family:'Baloo 2',sans-serif;
+    border:none; padding:12px 20px; border-radius:100px; font-family:'Fraunces',serif;
     font-weight:700; font-size:14px; cursor:pointer; color:#fff;
   }
   .pill-btn.share{ background:var(--sky); }
@@ -275,7 +275,7 @@
       color:#a8a8a8; margin-bottom:6px;
     }
     #printArea h1{
-      font-family:'Baloo 2',sans-serif; font-size:30px; margin:0 0 10px; color:#1a1a1a;
+      font-family:'Fraunces',serif; font-size:30px; margin:0 0 10px; color:#1a1a1a;
     }
     #printArea .p-tags{ margin-bottom:14px; }
     #printArea .p-tags span{
@@ -291,7 +291,7 @@
     #printArea .p-macros .val{ font-size:18px; font-weight:800; }
     #printArea .p-macros .lab{ font-size:10px; font-weight:700; text-transform:uppercase; color:#8a8a8a; letter-spacing:0.03em; }
     #printArea .p-cols{ display:grid; grid-template-columns:1fr 1.3fr; gap:32px; }
-    #printArea h2{ font-family:'Baloo 2',sans-serif; font-size:15px; margin:0 0 10px; border-bottom:2px solid #1a1a1a; padding-bottom:6px; }
+    #printArea h2{ font-family:'Fraunces',serif; font-size:15px; margin:0 0 10px; border-bottom:2px solid #1a1a1a; padding-bottom:6px; }
     #printArea ul, #printArea ol{ margin:0; padding-left:18px; font-size:13.5px; line-height:1.7; }
     #printArea .p-footer{ margin-top:30px; padding-top:14px; border-top:1px solid #eee; font-size:10.5px; color:#a8a8a8; text-align:center; }
     @page{ margin:1.4cm; }
@@ -305,9 +305,9 @@
   <div class="topbar">
     <div class="greet">
       <h1>Recipe Box</h1>
-      <p id="homeSub">Your sunny little cookbook</p>
+      <p id="homeSub">Protein-rich recipes at your fingertips</p>
     </div>
-    <div class="sun-badge"><span>☀️</span></div>
+    <div class="sun-badge"><span>💪</span></div>
   </div>
   <div class="tabs" id="tabs"></div>
   <div class="grid" id="grid"></div>
@@ -395,7 +395,7 @@ const CAT_COLOR = {
   Snack:"var(--grape)", Dessert:"var(--berry)", Other:"var(--sky)"
 };
 const CAT_TEXT_ON = {
-  Breakfast:"#5A4400", Lunch:"#fff", Dinner:"#fff", Snack:"#fff", Dessert:"#fff", Other:"#fff"
+  Breakfast:"#4A3A12", Lunch:"#fff", Dinner:"#fff", Snack:"#fff", Dessert:"#fff", Other:"#fff"
 };
 
 let recipes = [];
