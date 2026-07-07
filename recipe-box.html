@@ -1026,16 +1026,29 @@ async function shareRecipePDF(r, btnEl){
     const capture = document.getElementById('pdfCapture');
     capture.innerHTML = `<div class="pdf-doc">${buildRecipeDocHtml(r)}</div>`;
     await new Promise(res => setTimeout(res, 120));
-    const canvas = await html2canvas(capture, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const canvas = await html2canvas(capture, { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: 700 });
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit:'px', format:[canvas.width, canvas.height] });
-    pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+    const pdf = new jsPDF('p', 'mm', 'letter');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while(heightLeft > 0){
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
     const blob = pdf.output('blob');
     const fileName = (r.title||'recipe').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') + '.pdf';
     const file = new File([blob], fileName, { type: 'application/pdf' });
     if(navigator.canShare && navigator.canShare({ files:[file] })){
-      await navigator.share({ files:[file], title: r.title || 'Recipe', text: `${r.title||'A recipe'} — from Recipe Box` });
+      await navigator.share({ files:[file] });
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
