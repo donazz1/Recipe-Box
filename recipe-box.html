@@ -138,8 +138,15 @@
   .expand h4{ font-family:'Baloo 2',sans-serif; font-size:13px; margin:0 0 6px; color:var(--ink); }
   .expand ul, .expand ol{ margin:0 0 12px; padding-left:18px; line-height:1.55; }
   .expand ol{ margin-bottom:0; }
+  .expand-actions{ display:flex; gap:14px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .pdf-btn{
+    background:#FAF6EA; border:2px solid var(--line); color:var(--ink);
+    font-weight:800; font-size:12.5px; padding:9px 14px; border-radius:100px; cursor:pointer;
+    font-family:'Nunito',sans-serif;
+  }
+  .pdf-btn:active{ transform:scale(0.97); }
   .del{
-    margin-top:12px; background:none; border:none; color:var(--berry);
+    background:none; border:none; color:var(--berry);
     font-weight:800; font-size:12px; cursor:pointer; padding:0;
   }
   .empty{ text-align:center; color:var(--ink-soft); padding:70px 20px; font-weight:700; }
@@ -250,6 +257,45 @@
     justify-content:center;
   }
   .navbtn.addbtn .ic{ font-size:26px; }
+
+  /* ---------- Print / PDF ---------- */
+  #printArea{ display:none; }
+  @media print{
+    body > *:not(#printArea){ display:none !important; }
+    body{ background:#fff !important; padding:0 !important; }
+    #printArea{
+      display:block !important;
+      max-width:680px;
+      margin:0 auto;
+      color:#1a1a1a;
+      font-family:'Nunito',sans-serif;
+    }
+    #printArea .p-eyebrow{
+      font-size:11px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase;
+      color:#a8a8a8; margin-bottom:6px;
+    }
+    #printArea h1{
+      font-family:'Baloo 2',sans-serif; font-size:30px; margin:0 0 10px; color:#1a1a1a;
+    }
+    #printArea .p-tags{ margin-bottom:14px; }
+    #printArea .p-tags span{
+      display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
+      letter-spacing:0.03em; padding:4px 12px; border-radius:100px; color:#fff; margin-right:6px;
+    }
+    #printArea .p-qual{ font-size:12.5px; font-weight:700; color:#6b6b6b; margin-bottom:18px; }
+    #printArea .p-macros{
+      display:grid; grid-template-columns:repeat(4,1fr); border:2px solid #eee; border-radius:14px;
+      padding:14px 4px; margin-bottom:22px;
+    }
+    #printArea .p-macros div{ text-align:center; }
+    #printArea .p-macros .val{ font-size:18px; font-weight:800; }
+    #printArea .p-macros .lab{ font-size:10px; font-weight:700; text-transform:uppercase; color:#8a8a8a; letter-spacing:0.03em; }
+    #printArea .p-cols{ display:grid; grid-template-columns:1fr 1.3fr; gap:32px; }
+    #printArea h2{ font-family:'Baloo 2',sans-serif; font-size:15px; margin:0 0 10px; border-bottom:2px solid #1a1a1a; padding-bottom:6px; }
+    #printArea ul, #printArea ol{ margin:0; padding-left:18px; font-size:13.5px; line-height:1.7; }
+    #printArea .p-footer{ margin-top:30px; padding-top:14px; border-top:1px solid #eee; font-size:10.5px; color:#a8a8a8; text-align:center; }
+    @page{ margin:1.4cm; }
+  }
 </style>
 </head>
 <body>
@@ -331,6 +377,8 @@
   <div class="menu-item"><span class="ic">🌙</span> Appearance</div>
   <div class="menu-item danger" id="clearAllBtn"><span class="ic">🗑️</span> Clear all recipes</div>
 </div>
+
+<div id="printArea"></div>
 
 <div class="navbar">
   <button class="navbtn active" data-screen="home"><span class="ic">🏠</span>Home</button>
@@ -510,9 +558,16 @@ function render(){
       <div class="expand">
         ${ingredientsHtml ? `<h4>Ingredients</h4><ul>${ingredientsHtml}</ul>` : ''}
         ${instructionsHtml ? `<h4>Instructions</h4><ol>${instructionsHtml}</ol>` : ''}
-        <button class="del">Remove recipe</button>
+        <div class="expand-actions">
+          <button class="pdf-btn">🖨️ Print / Save as PDF</button>
+          <button class="del">Remove recipe</button>
+        </div>
       </div>
     `;
+    card.querySelector('.pdf-btn').onclick = (e)=>{
+      e.stopPropagation();
+      printRecipe(r);
+    };
     card.querySelector('.heart').onclick = async (e)=>{
       e.stopPropagation();
       r.favorite = !r.favorite;
@@ -647,6 +702,31 @@ document.getElementById('clearKeyBtn').onclick = ()=>{
   clearApiKey();
   refreshKeyUI();
 };
+function printRecipe(r){
+  const chips = r.categories.map(c=>`<span style="background:${CAT_COLOR[c]};color:${CAT_TEXT_ON[c]}">${c}</span>`).join('');
+  const qual = r.qualifiers.length ? r.qualifiers.join(' · ') : '';
+  const ingredientsHtml = (r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
+  const instructionsHtml = (r.instructions||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
+  document.getElementById('printArea').innerHTML = `
+    <div class="p-eyebrow">Recipe Box${r.serving ? ' · ' + escapeHtml(r.serving) : ''}</div>
+    <h1>${escapeHtml(r.title||"Untitled")}</h1>
+    <div class="p-tags">${chips}</div>
+    ${qual ? `<div class="p-qual">${escapeHtml(qual)}</div>` : ''}
+    <div class="p-macros">
+      <div><div class="val">${r.calories ?? '–'}</div><div class="lab">Cal</div></div>
+      <div><div class="val">${r.protein ?? '–'}${r.protein!=null?'g':''}</div><div class="lab">Protein</div></div>
+      <div><div class="val">${r.fat ?? '–'}${r.fat!=null?'g':''}</div><div class="lab">Fat</div></div>
+      <div><div class="val">${r.carbs ?? '–'}${r.carbs!=null?'g':''}</div><div class="lab">Carbs</div></div>
+    </div>
+    <div class="p-cols">
+      <div>${ingredientsHtml ? `<h2>Ingredients</h2><ul>${ingredientsHtml}</ul>` : ''}</div>
+      <div>${instructionsHtml ? `<h2>Instructions</h2><ol>${instructionsHtml}</ol>` : ''}</div>
+    </div>
+    <div class="p-footer">Filed with Recipe Box</div>
+  `;
+  window.print();
+}
+
 refreshKeyUI();
 
 loadRecipes();
