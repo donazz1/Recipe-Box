@@ -675,6 +675,70 @@ async function extractTextFromPDF(file){
   return text.trim();
 }
 
+function pdfImageObjToDataURL(imgObj){
+  if(!imgObj || !imgObj.width || !imgObj.height) return null;
+  const maxW = 900;
+  const scale = Math.min(1, maxW / imgObj.width);
+  const outW = Math.round(imgObj.width * scale);
+  const outH = Math.round(imgObj.height * scale);
+  const raw = document.createElement('canvas');
+  raw.width = imgObj.width; raw.height = imgObj.height;
+  const rctx = raw.getContext('2d');
+
+  if(imgObj.bitmap){
+    rctx.drawImage(imgObj.bitmap, 0, 0);
+  } else if(imgObj.data){
+    const pixelCount = imgObj.width * imgObj.height;
+    const imageData = rctx.createImageData(imgObj.width, imgObj.height);
+    const src = imgObj.data, out = imageData.data;
+    if(src.length === pixelCount * 4){
+      out.set(src);
+    } else if(src.length === pixelCount * 3){
+      for(let p=0, o=0; p<pixelCount; p++, o+=3){ out[p*4]=src[o]; out[p*4+1]=src[o+1]; out[p*4+2]=src[o+2]; out[p*4+3]=255; }
+    } else if(src.length === pixelCount){
+      for(let p=0; p<pixelCount; p++){ out[p*4]=src[p]; out[p*4+1]=src[p]; out[p*4+2]=src[p]; out[p*4+3]=255; }
+    } else {
+      return null;
+    }
+    rctx.putImageData(imageData, 0, 0);
+  } else {
+    return null;
+  }
+
+  const out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  out.getContext('2d').drawImage(raw, 0, 0, outW, outH);
+  return out.toDataURL('image/jpeg', 0.82);
+}
+
+async function extractImageFromPDF(file){
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let best = null;
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    const opList = await page.getOperatorList();
+    for(let j = 0; j < opList.fnArray.length; j++){
+      if(opList.fnArray[j] !== pdfjsLib.OPS.paintImageXObject) continue;
+      const imgName = opList.argsArray[j][0];
+      try{
+        const imgObj = await new Promise((resolve)=> page.objs.get(imgName, resolve));
+        const area = (imgObj && imgObj.width && imgObj.height) ? imgObj.width * imgObj.height : 0;
+        if(area > 0 && (!best || area > best.area)){
+          const dataUrl = pdfImageObjToDataURL(imgObj);
+          if(dataUrl) best = { area, dataUrl };
+        }
+      }catch(e){ /* skip unreadable image object */ }
+    }
+  }
+  return best ? best.dataUrl : null;
+}
+
 async function handlePDFFile(file){
   if(!file || (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf'))){
     setStatus("That doesn't look like a PDF.", 'err');
@@ -688,7 +752,19 @@ async function handlePDFFile(file){
       return;
     }
     input.value = text;
-    setStatus("Got it — review below, then file it.", 'ok');
+    setStatus("Looking for a photo in the PDF…");
+    try{
+      const imgDataUrl = await extractImageFromPDF(file);
+      if(imgDataUrl){
+        setPendingImage(imgDataUrl);
+        setStatus("Got the recipe and photo — review below, then file it.", 'ok');
+      } else {
+        setStatus("Got the recipe text — no photo found in that PDF.", 'ok');
+      }
+    }catch(imgErr){
+      console.error(imgErr);
+      setStatus("Got the recipe text — couldn't pull a photo from that PDF.", 'ok');
+    }
   }catch(e){
     console.error(e);
     setStatus("Hiccup reading that PDF: " + (e.message||'unknown error'), 'err');
