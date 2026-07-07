@@ -12,6 +12,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if(window['pdfjsLib']){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 <style>
   :root{
     --sun:#F2A93B;
@@ -415,12 +421,14 @@
   <div class="add-hero">
     <div class="big">🍳</div>
     <h2>Drop a recipe in</h2>
-    <p>Paste the recipe, drop in a link, whatever's easiest — I'll file it away.</p>
+    <p>Paste text, drop a link, or upload a PDF — I'll file it away.</p>
   </div>
   <div class="dropzone" id="dropzone">
     <textarea id="input" placeholder="Paste recipe text, or a link to a recipe page..."></textarea>
   </div>
   <div class="photo-row">
+    <input type="file" accept="application/pdf" id="pdfInput" style="display:none">
+    <button class="photo-btn" id="pdfBtn">📄 Upload a PDF</button>
     <input type="file" accept="image/*" id="imageInput" style="display:none">
     <button class="photo-btn" id="photoBtn">📷 Add a photo (optional)</button>
     <div class="photo-preview" id="photoPreview"></div>
@@ -650,6 +658,63 @@ imageInput.onchange = async ()=>{
   photoBtn.textContent = '📷 Add a photo (optional)';
   imageInput.value = '';
 };
+
+/* ---------- PDF import ---------- */
+const pdfBtn = document.getElementById('pdfBtn');
+const pdfInput = document.getElementById('pdfInput');
+
+async function extractTextFromPDF(file){
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let text = '';
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n\n';
+  }
+  return text.trim();
+}
+
+async function handlePDFFile(file){
+  if(!file || (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf'))){
+    setStatus("That doesn't look like a PDF.", 'err');
+    return;
+  }
+  setStatus("Reading the PDF…");
+  try{
+    const text = await extractTextFromPDF(file);
+    if(!text || text.length < 20){
+      setStatus("Couldn't find readable text in that PDF — it might be a scanned image. Try screenshotting it instead.", 'err');
+      return;
+    }
+    input.value = text;
+    setStatus("Got it — review below, then file it.", 'ok');
+  }catch(e){
+    console.error(e);
+    setStatus("Hiccup reading that PDF: " + (e.message||'unknown error'), 'err');
+  }
+}
+
+pdfBtn.onclick = ()=> pdfInput.click();
+pdfInput.onchange = ()=>{
+  const file = pdfInput.files[0];
+  if(file) handlePDFFile(file);
+  pdfInput.value = '';
+};
+
+// Paste a PDF or image directly (Cmd+V) into the text box
+input.addEventListener('paste', (e)=>{
+  const files = e.clipboardData && e.clipboardData.files;
+  if(!files || files.length === 0) return;
+  const file = files[0];
+  if(file.type === 'application/pdf'){
+    e.preventDefault();
+    handlePDFFile(file);
+  } else if(file.type.startsWith('image/')){
+    e.preventDefault();
+    compressImage(file).then(setPendingImage).catch(console.error);
+  }
+});
 
 /* ---------- Navigation ---------- */
 function showScreen(name){
@@ -937,7 +1002,9 @@ addBtn.onclick = ()=> parseAndAdd(input.value);
 });
 dropzone.addEventListener('drop', async e=>{
   const file = e.dataTransfer.files && e.dataTransfer.files[0];
-  if(file && file.type.startsWith('image/')){
+  if(file && file.type === 'application/pdf'){
+    handlePDFFile(file);
+  } else if(file && file.type.startsWith('image/')){
     try{ setPendingImage(await compressImage(file)); }catch(err){ console.error(err); }
   } else if(file){
     const reader = new FileReader();
