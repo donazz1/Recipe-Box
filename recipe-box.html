@@ -400,7 +400,51 @@
   <button class="navbtn" data-screen="menu"><span class="ic">☰</span>Menu</button>
 </div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, getDoc, deleteDoc, getDocs, query, where, documentId
+  } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAWKdfxhyAneKImrrx32fzUr9cYasnwHfg",
+    authDomain: "recipe-box-e91fb.firebaseapp.com",
+    projectId: "recipe-box-e91fb",
+    storageBucket: "recipe-box-e91fb.firebasestorage.app",
+    messagingSenderId: "818551172718",
+    appId: "1:818551172718:web:e43ea48c235499b428807f"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const firestore = getFirestore(app);
+  const kv = collection(firestore, "kv");
+
+  // Same shape as the old localStorage wrapper, so the rest of the app doesn't change.
+  window.db = {
+    async get(key){
+      const snap = await getDoc(doc(kv, key));
+      return snap.exists() ? { key, value: snap.data().value } : null;
+    },
+    async set(key, value){
+      await setDoc(doc(kv, key), { value });
+      return { key, value };
+    },
+    async delete(key){
+      await deleteDoc(doc(kv, key));
+      return { key, deleted: true };
+    },
+    async list(prefix){
+      const p = prefix || '';
+      const q = query(kv, where(documentId(), '>=', p), where(documentId(), '<=', p + '\uf8ff'));
+      const snaps = await getDocs(q);
+      const keys = [];
+      snaps.forEach(s => keys.push(s.id));
+      return { keys };
+    }
+  };
+</script>
+
+<script type="module">
 const CATS = ["Breakfast","Lunch","Dinner","Snack","Dessert","Other"];
 const CAT_COLOR = {
   Breakfast:"var(--sun)", Lunch:"var(--mint)", Dinner:"var(--tangerine)",
@@ -413,30 +457,7 @@ const CAT_TEXT_ON = {
 let recipes = [];
 let activeFilter = "All";
 
-/* ---------- Local storage wrapper (mirrors the get/set/list/delete shape) ---------- */
-const NS = "rbox:";
-const db = {
-  async get(key){
-    const v = localStorage.getItem(NS + key);
-    return v === null ? null : { key, value: v };
-  },
-  async set(key, value){
-    localStorage.setItem(NS + key, value);
-    return { key, value };
-  },
-  async delete(key){
-    localStorage.removeItem(NS + key);
-    return { key, deleted: true };
-  },
-  async list(prefix){
-    const keys = [];
-    for(let i=0; i<localStorage.length; i++){
-      const k = localStorage.key(i);
-      if(k && k.startsWith(NS + (prefix||''))){ keys.push(k.slice(NS.length)); }
-    }
-    return { keys };
-  }
-};
+const db = window.db;
 
 function getApiKey(){ return localStorage.getItem('rbox_api_key') || ''; }
 function setApiKey(k){ localStorage.setItem('rbox_api_key', k); }
