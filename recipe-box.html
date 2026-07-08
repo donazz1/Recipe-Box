@@ -1235,11 +1235,15 @@ async function loadRecipes(){
       try{
         const r = await db.get(key);
         if(r && r.value) items.push(normalize(JSON.parse(r.value)));
-      }catch(e){}
+      }catch(e){ console.error('Failed to load', key, e); }
     }
     items.sort((a,b)=> (b.addedAt||0) - (a.addedAt||0));
     recipes = items;
-  }catch(e){ recipes = []; }
+  }catch(e){
+    console.error('loadRecipes failed:', e);
+    recipes = [];
+    showToast('⚠️ Could not load your recipes — check your connection and reload');
+  }
   render();
 }
 
