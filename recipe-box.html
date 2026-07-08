@@ -562,9 +562,7 @@
   <div class="menu-item" id="inboxMenuBtn"><span class="ic">📥</span> Shared with you <span id="inboxBadge" style="display:none;"></span></div>
   <div class="menu-item" id="contactsMenuBtn"><span class="ic">👥</span> My Contacts</div>
   <div class="menu-item" id="restoreMenuBtn"><span class="ic">📦</span> Restore my old recipes</div>
-  <div class="menu-item"><span class="ic">🏷️</span> Manage categories</div>
-  <div class="menu-item"><span class="ic">📤</span> Export all recipes</div>
-  <div class="menu-item"><span class="ic">🌙</span> Appearance</div>
+  <div class="menu-item" id="exportMenuBtn"><span class="ic">📤</span> Export all recipes</div>
   <div class="menu-item danger" id="clearAllBtn"><span class="ic">🗑️</span> Clear all recipes</div>
 </div>
 
@@ -1043,6 +1041,33 @@ document.getElementById('restoreMenuBtn').onclick = async ()=>{
   }
 };
 
+document.getElementById('exportMenuBtn').onclick = ()=>{
+  if(recipes.length === 0){ showToast('Nothing to export yet'); return; }
+  const lines = recipes.map(r => {
+    const parts = [
+      `${r.title || 'Untitled'}`,
+      `Categories: ${(r.categories||[]).join(', ')}`,
+      r.qualifiers && r.qualifiers.length ? r.qualifiers.join(' · ') : '',
+      `Calories: ${r.calories ?? '–'}  Protein: ${r.protein ?? '–'}g  Fat: ${r.fat ?? '–'}g  Carbs: ${r.carbs ?? '–'}g${r.macrosEstimated ? ' (estimated)' : ''}`,
+      '',
+      'Ingredients:',
+      ...(r.ingredients||[]).map(i => `- ${i}`),
+      '',
+      'Instructions:',
+      ...(r.instructions||[]).map((s,i) => `${i+1}. ${s}`),
+    ];
+    return parts.join('\n');
+  });
+  const blob = new Blob([lines.join('\n\n' + '─'.repeat(40) + '\n\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `recipe-box-backup-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`📤 Exported ${recipes.length} recipe${recipes.length===1?'':'s'}`);
+};
+
 async function refreshInboxBadge(){
   await userReady;
   try{
@@ -1219,11 +1244,11 @@ async function loadRecipes(){
 }
 
 function renderTabs(){
-  const cats = ["All", ...CATS];
+  const cats = ["All", "❤️ Favorites", ...CATS];
   tabsEl.innerHTML = '';
   cats.forEach(c=>{
     const btn = document.createElement('button');
-    const color = c==="All" ? "var(--ink)" : CAT_COLOR[c];
+    const color = c==="All" ? "var(--ink)" : (c==="❤️ Favorites" ? "var(--berry)" : CAT_COLOR[c]);
     btn.className = 'tab' + (c===activeFilter ? ' active' : '');
     btn.style.background = c===activeFilter ? color : '';
     btn.textContent = c;
@@ -1234,10 +1259,16 @@ function renderTabs(){
 
 function render(){
   renderTabs();
-  const filtered = activeFilter === "All" ? recipes : recipes.filter(r => r.categories.includes(activeFilter));
+  let filtered;
+  if(activeFilter === "All") filtered = recipes;
+  else if(activeFilter === "❤️ Favorites") filtered = recipes.filter(r => r.favorite);
+  else filtered = recipes.filter(r => r.categories.includes(activeFilter));
   grid.innerHTML = '';
   if(filtered.length === 0){
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span class="big">🍽️</span>${recipes.length===0 ? "Your box is empty — tap ＋ to file your first recipe." : "Nothing under <b>"+activeFilter+"</b> yet."}</div>`;
+    const emptyMsg = recipes.length===0
+      ? "Your box is empty — tap ＋ to file your first recipe."
+      : (activeFilter === "❤️ Favorites" ? "No favorites yet — tap the heart on any recipe." : "Nothing under <b>"+activeFilter+"</b> yet.");
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span class="big">🍽️</span>${emptyMsg}</div>`;
     return;
   }
   filtered.forEach(r=>{
