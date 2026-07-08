@@ -563,6 +563,7 @@
   <div class="menu-item" id="contactsMenuBtn"><span class="ic">👥</span> My Contacts</div>
   <div class="menu-item" id="restoreMenuBtn"><span class="ic">📦</span> Restore my old recipes</div>
   <div class="menu-item" id="exportMenuBtn"><span class="ic">📤</span> Export all recipes</div>
+  <div class="menu-item danger" id="signOutBtn"><span class="ic">🚪</span> Sign out</div>
   <div class="menu-item danger" id="clearAllBtn"><span class="ic">🗑️</span> Clear all recipes</div>
 </div>
 
@@ -1066,6 +1067,19 @@ document.getElementById('exportMenuBtn').onclick = ()=>{
   a.click();
   URL.revokeObjectURL(url);
   showToast(`📤 Exported ${recipes.length} recipe${recipes.length===1?'':'s'}`);
+};
+
+document.getElementById('signOutBtn').onclick = async ()=>{
+  if(!confirm(`Sign out of ${(currentProfile && currentProfile.name) || 'this account'}?`)) return;
+  try{
+    await fb.signOut(fb.auth);
+    // Full reload (stripped of any invite params) guarantees a totally clean slate —
+    // no leftover invite/email state hanging around in memory from this session.
+    window.location.href = window.location.origin + window.location.pathname;
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ Could not sign out — try again');
+  }
 };
 
 async function refreshInboxBadge(){
