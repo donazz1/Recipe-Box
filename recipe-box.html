@@ -649,13 +649,31 @@
 
     // Send a passwordless sign-in link to `email`. `extra` is an object of
     // query params (invite uid, share-mode, etc.) preserved through the link.
-    async sendLoginLink(email, extra){
+    // Routes through our own Cloud Function (which sends via Resend) instead
+    // of Firebase's built-in sender, for reliable delivery to iCloud/Apple Mail.
+    async sendLoginLink(email, extra, name){
       const url = new URL(window.location.href);
       url.searchParams.delete('apiKey'); url.searchParams.delete('oobCode');
       url.searchParams.delete('mode'); url.searchParams.delete('lang');
       if(extra){ Object.keys(extra).forEach(k => url.searchParams.set(k, extra[k])); }
-      const actionCodeSettings = { url: url.toString(), handleCodeInApp: true };
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      const continueUrl = url.toString();
+
+      const FUNCTION_URL = 'https://send-custom-sign-in-link-818551172718.us-central1.run.app';
+      try{
+        const resp = await fetch(FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, continueUrl, name }),
+        });
+        if(!resp.ok){
+          const errBody = await resp.json().catch(()=>({}));
+          throw new Error(errBody.error || ('Send failed (' + resp.status + ')'));
+        }
+      }catch(fnErr){
+        console.error('Custom sender failed, falling back to Firebase default sender:', fnErr);
+        const actionCodeSettings = { url: continueUrl, handleCodeInApp: true };
+        await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      }
       window.localStorage.setItem('rbox_pending_email', email);
     },
 
@@ -1838,7 +1856,7 @@ document.getElementById('authSendBtn').onclick = async ()=>{
     window.localStorage.setItem('rbox_pending_name', name);
     const extra = {};
     if(inviteUidParam) extra.invite = inviteUidParam;
-    await fb.sendLoginLink(email, extra);
+    await fb.sendLoginLink(email, extra, name);
     document.getElementById('authSentEmail').textContent = email;
     authForm.style.display = 'none';
     authSentState.style.display = 'block';
