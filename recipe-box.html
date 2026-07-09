@@ -625,7 +625,8 @@
   } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   import {
     getAuth, onAuthStateChanged, sendSignInLinkToEmail,
-    isSignInWithEmailLink, signInWithEmailLink, signOut
+    isSignInWithEmailLink, signInWithEmailLink, signOut,
+    setPersistence, indexedDBLocalPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -640,6 +641,13 @@
   const app = initializeApp(firebaseConfig);
   const firestore = getFirestore(app);
   const auth = getAuth(app);
+
+  // Explicitly force the most durable session storage available, rather than
+  // relying on the SDK's default — this matters especially for iOS "Add to
+  // Home Screen" apps, where session persistence can otherwise be unreliable.
+  setPersistence(auth, indexedDBLocalPersistence).catch(()=>{
+    setPersistence(auth, browserLocalPersistence).catch(()=>{});
+  });
 
   window.fb = {
     firestore, auth,
