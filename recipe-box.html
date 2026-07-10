@@ -664,6 +664,10 @@
       url.searchParams.delete('apiKey'); url.searchParams.delete('oobCode');
       url.searchParams.delete('mode'); url.searchParams.delete('lang');
       if(extra){ Object.keys(extra).forEach(k => url.searchParams.set(k, extra[k])); }
+      // Bake the email directly into the link so it can be recovered even if
+      // the link opens in a different browser context (e.g. tapping it from
+      // Mail opens Safari, which has separate storage from a home-screen app).
+      url.searchParams.set('rbSignInEmail', email);
       const continueUrl = url.toString();
 
       const FUNCTION_URL = 'https://send-custom-sign-in-link-818551172718.us-central1.run.app';
@@ -689,19 +693,20 @@
     // magic link. Returns the signed-in user, or null if this wasn't a link.
     async completeLoginIfLink(){
       if(!isSignInWithEmailLink(auth, window.location.href)) return null;
-      let email = window.localStorage.getItem('rbox_pending_email');
+      const url = new URL(window.location.href);
+      let email = url.searchParams.get('rbSignInEmail') || window.localStorage.getItem('rbox_pending_email');
       if(!email){ email = window.prompt('Confirm your email to finish signing in:'); }
       if(!email) return null;
       const result = await signInWithEmailLink(auth, email, window.location.href);
       window.localStorage.removeItem('rbox_pending_email');
       // Clean the magic-link params out of the visible URL, keep our own (invite/email).
-      const url = new URL(window.location.href);
-      ['apiKey','oobCode','mode','lang','continueUrl'].forEach(k => url.searchParams.delete(k));
+      ['apiKey','oobCode','mode','lang','continueUrl','rbSignInEmail'].forEach(k => url.searchParams.delete(k));
       window.history.replaceState({}, '', url.toString());
       return result.user;
     }
   };
 </script>
+
 
 <script type="module">
 
