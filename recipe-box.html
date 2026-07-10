@@ -1840,6 +1840,10 @@ const inviteEmailParam = urlParams.get('email');
 
 async function showAuthScreen(){
   authScreen.classList.add('show');
+  const lastName = window.localStorage.getItem('rbox_last_name');
+  const lastEmail = window.localStorage.getItem('rbox_last_email');
+  if(lastName) document.getElementById('authName').value = lastName;
+  if(lastEmail) document.getElementById('authEmail').value = lastEmail;
   if(inviteEmailParam) document.getElementById('authEmail').value = inviteEmailParam;
   if(inviteUidParam){
     try{
@@ -1889,6 +1893,8 @@ async function initAppAfterSignIn(){
       currentUser = user;
       try{ await ensureUserProfile(user); }
       catch(e){ console.error('Profile setup failed:', e); }
+      if(user.email) window.localStorage.setItem('rbox_last_email', user.email);
+      if(currentProfile && currentProfile.name) window.localStorage.setItem('rbox_last_name', currentProfile.name);
       resolveUserReady();
       hideAuthScreen();
       initAppAfterSignIn();
