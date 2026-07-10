@@ -531,6 +531,11 @@
     <h2>Invite someone</h2>
     <p>Enter their email — we'll build a personal link that signs them in and sets up their own profile.</p>
     <input type="email" id="inviteEmail" placeholder="their-email@example.com" style="width:100%; padding:12px 14px; border-radius:12px; border:2px solid var(--line); font-family:'Nunito',sans-serif; font-size:14px; font-weight:700; margin-bottom:12px;">
+    <div style="text-align:left; font-size:12.5px; font-weight:800; color:var(--ink-soft); margin-bottom:8px;">What should they get?</div>
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <button class="pill-btn" id="inviteFullBtn" style="flex:1; background:var(--mint);">Full library</button>
+      <button class="pill-btn" id="inviteEmptyBtn" style="flex:1; background:#786F92;">Start empty</button>
+    </div>
     <button class="pill-btn copy" id="createInviteBtn" style="width:100%;">✨ Create invite link</button>
     <div class="status" id="inviteStatus" style="margin-top:8px;"></div>
     <div id="inviteResult" style="display:none; margin-top:14px;">
@@ -740,6 +745,7 @@ async function ensureUserProfile(user){
   const snap = await fb.getDoc(profileRef);
   const urlParams = new URLSearchParams(window.location.search);
   const inviteUid = urlParams.get('invite');
+  const inviteModeParam = urlParams.get('mode'); // 'full' | 'empty' | null (older links)
 
   if(snap.exists()){
     currentProfile = snap.data();
@@ -764,7 +770,10 @@ async function ensureUserProfile(user){
         await fb.setDoc(fb.doc(fb.firestore, 'users', user.uid, 'contacts', inviteUid), {
           name: inviter.name, email: inviter.email || '', acceptedAt: Date.now()
         });
-        if(!inviter.shareEmptyLibrary){
+        // Per-invite choice wins if present; older links fall back to the
+        // inviter's saved Profile setting.
+        const shouldCopy = inviteModeParam ? (inviteModeParam === 'full') : !inviter.shareEmptyLibrary;
+        if(shouldCopy){
           const theirRecipes = await fb.getDocs(fb.collection(fb.firestore, 'users', inviteUid, 'recipes'));
           const batch = fb.writeBatch(fb.firestore);
           theirRecipes.forEach(docSnap => {
@@ -1156,6 +1165,16 @@ async function renderContacts(){
 function setupInvite(){
   document.getElementById('inviteResult').style.display = 'none';
   document.getElementById('inviteStatus').textContent = '';
+
+  let inviteMode = (currentProfile && currentProfile.shareEmptyLibrary) ? 'empty' : 'full';
+  function renderInviteModeBtns(){
+    document.getElementById('inviteFullBtn').style.opacity = inviteMode === 'full' ? '1' : '0.5';
+    document.getElementById('inviteEmptyBtn').style.opacity = inviteMode === 'empty' ? '1' : '0.5';
+  }
+  renderInviteModeBtns();
+  document.getElementById('inviteFullBtn').onclick = ()=>{ inviteMode = 'full'; renderInviteModeBtns(); };
+  document.getElementById('inviteEmptyBtn').onclick = ()=>{ inviteMode = 'empty'; renderInviteModeBtns(); };
+
   document.getElementById('createInviteBtn').onclick = ()=>{
     const email = document.getElementById('inviteEmail').value.trim();
     const statusEl3 = document.getElementById('inviteStatus');
@@ -1166,14 +1185,16 @@ function setupInvite(){
     const url = new URL(window.location.href.split('?')[0]);
     url.searchParams.set('invite', currentUser.uid);
     url.searchParams.set('email', email);
+    url.searchParams.set('mode', inviteMode);
     const link = url.toString();
     statusEl3.textContent = '';
     document.getElementById('linkBox').textContent = link;
     document.getElementById('inviteResult').style.display = 'block';
 
     document.getElementById('shareBtn').onclick = async ()=>{
+      const subject = `${currentProfile.name} invited you to Recipe Box`;
       if(navigator.share){
-        try{ await navigator.share({title:'Recipe Box', text:`${currentProfile.name} invited you to Recipe Box`, url: link}); }catch(e){}
+        try{ await navigator.share({ title: subject, text: subject, url: link }); }catch(e){}
       } else { copyLink(); }
     };
     document.getElementById('copyBtn').onclick = copyLink;
