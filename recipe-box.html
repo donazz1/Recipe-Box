@@ -451,13 +451,13 @@
     <div id="authForm">
       <input type="text" id="authName" placeholder="Your name" autocomplete="name">
       <input type="email" id="authEmail" placeholder="Your email" autocomplete="email">
-      <button class="add-btn" id="authSendBtn" style="margin-top:6px;">✨ Continue</button>
+      <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password">
+      <button class="add-btn" id="authSendBtn" style="margin-top:6px;">✨ Sign In</button>
       <div class="status" id="authStatus"></div>
-    </div>
-    <div id="authSentState" style="display:none;">
-      <div class="big" style="font-size:40px;">📬</div>
-      <p style="font-weight:800; margin:10px 0 4px;">Check your email</p>
-      <p style="font-size:13px; color:var(--ink-soft);">Tap the link we sent to <b id="authSentEmail"></b> to finish signing in on this device.</p>
+      <div id="authModeToggle" style="margin-top:12px; font-size:12.5px; font-weight:700; color:var(--ink-soft);">
+        New here? <span id="authModeLink" style="text-decoration:underline; cursor:pointer;">Create an account</span>
+      </div>
+      <div id="authForgotLink" style="margin-top:8px; font-size:12.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; text-decoration:underline;">Forgot password?</div>
     </div>
   </div>
 </div>
@@ -624,8 +624,8 @@
     query, where, documentId, writeBatch, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   import {
-    getAuth, onAuthStateChanged, sendSignInLinkToEmail,
-    isSignInWithEmailLink, signInWithEmailLink, signOut,
+    getAuth, onAuthStateChanged, signOut,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail,
     setPersistence, indexedDBLocalPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
@@ -655,54 +655,20 @@
     query, where, documentId, writeBatch, serverTimestamp,
     onAuthStateChanged, signOut,
 
-    // Send a passwordless sign-in link to `email`. `extra` is an object of
-    // query params (invite uid, share-mode, etc.) preserved through the link.
-    // Routes through our own Cloud Function (which sends via Resend) instead
-    // of Firebase's built-in sender, for reliable delivery to iCloud/Apple Mail.
-    async sendLoginLink(email, extra, name){
-      const url = new URL(window.location.href);
-      url.searchParams.delete('apiKey'); url.searchParams.delete('oobCode');
-      url.searchParams.delete('mode'); url.searchParams.delete('lang');
-      if(extra){ Object.keys(extra).forEach(k => url.searchParams.set(k, extra[k])); }
-      // Bake the email directly into the link so it can be recovered even if
-      // the link opens in a different browser context (e.g. tapping it from
-      // Mail opens Safari, which has separate storage from a home-screen app).
-      url.searchParams.set('rbSignInEmail', email);
-      const continueUrl = url.toString();
-
-      const FUNCTION_URL = 'https://send-custom-sign-in-link-818551172718.us-central1.run.app';
-      try{
-        const resp = await fetch(FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, continueUrl, name }),
-        });
-        if(!resp.ok){
-          const errBody = await resp.json().catch(()=>({}));
-          throw new Error(errBody.error || ('Send failed (' + resp.status + ')'));
-        }
-      }catch(fnErr){
-        console.error('Custom sender failed, falling back to Firebase default sender:', fnErr);
-        const actionCodeSettings = { url: continueUrl, handleCodeInApp: true };
-        await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      }
-      window.localStorage.setItem('rbox_pending_email', email);
+    // Sign in with an existing password. Throws auth/user-not-found (or
+    // auth/invalid-credential) if there's no account for this email yet.
+    async signIn(email, password){
+      return signInWithEmailAndPassword(auth, email, password);
     },
 
-    // Call on every page load. Completes sign-in if the current URL is a
-    // magic link. Returns the signed-in user, or null if this wasn't a link.
-    async completeLoginIfLink(){
-      if(!isSignInWithEmailLink(auth, window.location.href)) return null;
-      const url = new URL(window.location.href);
-      let email = url.searchParams.get('rbSignInEmail') || window.localStorage.getItem('rbox_pending_email');
-      if(!email){ email = window.prompt('Confirm your email to finish signing in:'); }
-      if(!email) return null;
-      const result = await signInWithEmailLink(auth, email, window.location.href);
-      window.localStorage.removeItem('rbox_pending_email');
-      // Clean the magic-link params out of the visible URL, keep our own (invite/email).
-      ['apiKey','oobCode','mode','lang','continueUrl','rbSignInEmail'].forEach(k => url.searchParams.delete(k));
-      window.history.replaceState({}, '', url.toString());
-      return result.user;
+    // Create a brand-new account with this email/password.
+    async signUp(email, password){
+      return createUserWithEmailAndPassword(auth, email, password);
+    },
+
+    // Send a "reset your password" email (self-service, no admin step needed).
+    async resetPassword(email){
+      return sendPasswordResetEmail(auth, email);
     }
   };
 </script>
@@ -1837,19 +1803,36 @@ refreshKeyUI();
 /* ---------- Auth screen wiring ---------- */
 const authScreen = document.getElementById('authScreen');
 const authForm = document.getElementById('authForm');
-const authSentState = document.getElementById('authSentState');
 const authStatus = document.getElementById('authStatus');
 const urlParams = new URLSearchParams(window.location.search);
 const inviteUidParam = urlParams.get('invite');
 const inviteEmailParam = urlParams.get('email');
 
+let authMode = 'signin';
+function setAuthMode(mode){
+  authMode = mode;
+  const nameInput = document.getElementById('authName');
+  const btn = document.getElementById('authSendBtn');
+  const link = document.getElementById('authModeLink');
+  const toggleWrap = document.getElementById('authModeToggle');
+  if(mode === 'signup'){
+    nameInput.style.display = 'block';
+    btn.textContent = '✨ Create Account';
+    toggleWrap.innerHTML = 'Already have an account? <span id="authModeLink" style="text-decoration:underline; cursor:pointer;">Sign in</span>';
+  } else {
+    nameInput.style.display = 'none';
+    btn.textContent = '✨ Sign In';
+    toggleWrap.innerHTML = 'New here? <span id="authModeLink" style="text-decoration:underline; cursor:pointer;">Create an account</span>';
+  }
+  document.getElementById('authModeLink').onclick = ()=> setAuthMode(mode === 'signup' ? 'signin' : 'signup');
+}
+
 async function showAuthScreen(){
   authScreen.classList.add('show');
-  const lastName = window.localStorage.getItem('rbox_last_name');
   const lastEmail = window.localStorage.getItem('rbox_last_email');
-  if(lastName) document.getElementById('authName').value = lastName;
   if(lastEmail) document.getElementById('authEmail').value = lastEmail;
   if(inviteEmailParam) document.getElementById('authEmail').value = inviteEmailParam;
+  setAuthMode(inviteUidParam ? 'signup' : 'signin');
   if(inviteUidParam){
     try{
       const snap = await fb.getDoc(fb.doc(fb.firestore, 'users', inviteUidParam));
@@ -1863,23 +1846,52 @@ async function showAuthScreen(){
 }
 function hideAuthScreen(){ authScreen.classList.remove('show'); }
 
+function friendlyAuthError(e){
+  const code = e && e.code || '';
+  if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'Wrong email or password.';
+  if(code.includes('user-not-found')) return 'No account with that email yet — try "Create an account."';
+  if(code.includes('email-already-in-use')) return 'An account already exists for that email — try "Sign in" instead.';
+  if(code.includes('weak-password')) return 'Password should be at least 6 characters.';
+  if(code.includes('invalid-email')) return 'That email doesn\'t look right.';
+  if(code.includes('too-many-requests')) return 'Too many tries — wait a bit and try again.';
+  return e && e.message ? e.message : 'Something went wrong — try again.';
+}
+
 document.getElementById('authSendBtn').onclick = async ()=>{
   const name = document.getElementById('authName').value.trim();
   const email = document.getElementById('authEmail').value.trim();
-  if(!name){ authStatus.textContent = 'What should we call you?'; authStatus.className='status err'; return; }
+  const password = document.getElementById('authPassword').value;
   if(!email || !email.includes('@')){ authStatus.textContent = 'Enter a valid email.'; authStatus.className='status err'; return; }
-  authStatus.textContent = 'Sending…'; authStatus.className = 'status';
+  if(!password || password.length < 6){ authStatus.textContent = 'Password needs to be at least 6 characters.'; authStatus.className='status err'; return; }
+  if(authMode === 'signup' && !name){ authStatus.textContent = 'What should we call you?'; authStatus.className='status err'; return; }
+
+  authStatus.textContent = authMode === 'signup' ? 'Creating your account…' : 'Signing in…';
+  authStatus.className = 'status';
   try{
-    window.localStorage.setItem('rbox_pending_name', name);
-    const extra = {};
-    if(inviteUidParam) extra.invite = inviteUidParam;
-    await fb.sendLoginLink(email, extra, name);
-    document.getElementById('authSentEmail').textContent = email;
-    authForm.style.display = 'none';
-    authSentState.style.display = 'block';
+    if(authMode === 'signup'){
+      window.localStorage.setItem('rbox_pending_name', name);
+      await fb.signUp(email, password);
+    } else {
+      await fb.signIn(email, password);
+    }
+    // onAuthStateChanged picks up from here
   }catch(e){
     console.error(e);
-    authStatus.textContent = 'Hiccup sending that link: ' + (e.message||'try again');
+    authStatus.textContent = friendlyAuthError(e);
+    authStatus.className = 'status err';
+  }
+};
+
+document.getElementById('authForgotLink').onclick = async ()=>{
+  const email = document.getElementById('authEmail').value.trim();
+  if(!email || !email.includes('@')){ authStatus.textContent = 'Enter your email above first.'; authStatus.className='status err'; return; }
+  try{
+    await fb.resetPassword(email);
+    authStatus.textContent = 'Password reset email sent — check your inbox.';
+    authStatus.className = 'status ok';
+  }catch(e){
+    console.error(e);
+    authStatus.textContent = friendlyAuthError(e);
     authStatus.className = 'status err';
   }
 };
@@ -1889,17 +1901,13 @@ async function initAppAfterSignIn(){
   refreshInboxBadge();
 }
 
-(async function boot(){
-  try{ await fb.completeLoginIfLink(); }
-  catch(e){ console.error('Sign-in link failed:', e); }
-
+(function boot(){
   fb.onAuthStateChanged(fb.auth, async (user)=>{
     if(user){
       currentUser = user;
       try{ await ensureUserProfile(user); }
       catch(e){ console.error('Profile setup failed:', e); }
       if(user.email) window.localStorage.setItem('rbox_last_email', user.email);
-      if(currentProfile && currentProfile.name) window.localStorage.setItem('rbox_last_name', currentProfile.name);
       resolveUserReady();
       hideAuthScreen();
       initAppAfterSignIn();
