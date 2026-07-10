@@ -671,9 +671,25 @@
       return createUserWithEmailAndPassword(auth, email, password);
     },
 
-    // Send a "reset your password" email (self-service, no admin step needed).
+    // Send a "reset your password" email via our own Cloud Function (Resend),
+    // since Firebase's built-in sender is unreliably filtered by iCloud/Apple Mail.
     async resetPassword(email){
-      return sendPasswordResetEmail(auth, email);
+      const FUNCTION_URL = 'https://send-custom-sign-in-link-818551172718.us-central1.run.app';
+      const continueUrl = window.location.origin + window.location.pathname;
+      try{
+        const resp = await fetch(FUNCTION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, continueUrl, action: 'reset' }),
+        });
+        if(!resp.ok){
+          const errBody = await resp.json().catch(()=>({}));
+          throw new Error(errBody.error || ('Send failed (' + resp.status + ')'));
+        }
+      }catch(fnErr){
+        console.error('Custom reset sender failed, falling back to Firebase default sender:', fnErr);
+        await sendPasswordResetEmail(auth, email);
+      }
     }
   };
 </script>
