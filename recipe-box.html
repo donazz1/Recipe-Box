@@ -372,6 +372,20 @@
     padding:10px;
   }
   .cook-body .step-text{ font-size:clamp(20px,4.4vw,30px); font-weight:700; line-height:1.4; font-family:'Fraunces',serif; }
+  .cook-speech-row{ display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:6px; }
+  .speech-btn{
+    background:#FAF6EA; border:2px solid var(--line); color:var(--ink);
+    font-weight:800; font-size:13.5px; padding:11px 20px; border-radius:100px; cursor:pointer;
+    font-family:'Nunito',sans-serif; min-width:150px;
+  }
+  .speech-btn.playing{ background:var(--tangerine); border-color:var(--tangerine); color:#fff; }
+  .speech-speeds{ display:flex; gap:6px; }
+  .speed-btn{
+    background:transparent; border:2px solid var(--line); color:var(--ink-soft);
+    font-weight:800; font-size:11.5px; padding:6px 12px; border-radius:100px; cursor:pointer;
+    font-family:'Nunito',sans-serif;
+  }
+  .speed-btn.active{ background:var(--ink); border-color:var(--ink); color:#fff; }
   .cook-nav{ display:flex; gap:12px; padding-top:16px; }
   .cook-nav button{
     flex:1; padding:16px; border-radius:100px; border:none; font-weight:800; font-size:15px;
@@ -504,7 +518,10 @@
   <div class="topbar"><div class="greet"><h1>Profile</h1></div></div>
   <div class="profile-card">
     <div class="avatar"><span>👤</span></div>
-    <h2 id="profileName">You</h2>
+    <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+      <h2 id="profileName" style="margin:0;">You</h2>
+      <button id="editNameBtn" style="background:none; border:none; cursor:pointer; font-size:15px; opacity:0.6;">✏️</button>
+    </div>
     <p id="profileEmail">Recipe collector</p>
     <div class="stat-row">
       <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Recipes</div></div>
@@ -608,6 +625,16 @@
   <div class="cook-ing-toggle" id="cookIngToggle">Show ingredients</div>
   <div class="cook-ing-list" id="cookIngList"></div>
   <div class="cook-body"><div class="step-text" id="cookStepText"></div></div>
+  <div class="cook-speech-row">
+    <button class="speech-btn" id="cookSpeakBtn">🔊 Read aloud</button>
+    <button class="speech-btn" id="cookReplayBtn">🔁 Replay</button>
+    <div class="speech-speeds">
+      <button class="speed-btn" data-rate="0.75">0.75x</button>
+      <button class="speed-btn active" data-rate="1">1x</button>
+      <button class="speed-btn" data-rate="1.25">1.25x</button>
+      <button class="speed-btn" data-rate="1.5">1.5x</button>
+    </div>
+  </div>
   <div class="cook-nav">
     <button class="prev" id="cookPrev">← Back</button>
     <button class="next" id="cookNext">Next →</button>
@@ -1235,6 +1262,18 @@ function updateProfile(){
   renderShareModeButtons();
 }
 
+document.getElementById('editNameBtn').onclick = async ()=>{
+  const newName = window.prompt('Your name:', (currentProfile && currentProfile.name) || '');
+  if(!newName || !newName.trim()) return;
+  const trimmed = newName.trim();
+  await userReady;
+  currentProfile.name = trimmed;
+  await fb.setDoc(fb.doc(fb.firestore, 'users', currentUser.uid), currentProfile, { merge: true });
+  window.localStorage.setItem('rbox_last_name', trimmed);
+  updateProfile();
+  showToast('✅ Name updated');
+};
+
 function renderShareModeButtons(){
   const empty = currentProfile && currentProfile.shareEmptyLibrary;
   document.getElementById('shareFullBtn').style.opacity = empty ? '0.5' : '1';
@@ -1793,6 +1832,7 @@ document.getElementById('clearGroceryBtn').onclick = async ()=>{
 
 /* ---------- Cook Mode ---------- */
 let cookRecipe = null, cookStep = 0, wakeLock = null;
+let speechPlaying = false, speechRate = 1;
 const cookOverlay = document.getElementById('cookOverlay');
 
 function openCookMode(r){
@@ -1811,6 +1851,7 @@ function openCookMode(r){
 }
 function closeCookMode(){
   cookOverlay.classList.remove('open');
+  stopSpeaking();
   if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
 }
 function renderCookStep(){
@@ -1822,7 +1863,46 @@ function renderCookStep(){
   const nextBtn = document.getElementById('cookNext');
   if(cookStep >= total - 1){ nextBtn.textContent = '🎉 Done'; }
   else { nextBtn.textContent = 'Next →'; }
+  // If read-aloud was actively playing, keep reading through the new step.
+  if(speechPlaying) speakCurrentStep();
 }
+
+/* ---------- Read aloud (Cook Mode) ---------- */
+function speakCurrentStep(){
+  if(!('speechSynthesis' in window)){ showToast('Reading aloud isn\'t supported in this browser'); return; }
+  window.speechSynthesis.cancel();
+  const text = document.getElementById('cookStepText').textContent;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = speechRate;
+  utter.onend = ()=>{ speechPlaying = false; updateSpeakBtn(); };
+  window.speechSynthesis.speak(utter);
+  speechPlaying = true;
+  updateSpeakBtn();
+}
+function stopSpeaking(){
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  speechPlaying = false;
+  updateSpeakBtn();
+}
+function updateSpeakBtn(){
+  const btn = document.getElementById('cookSpeakBtn');
+  btn.textContent = speechPlaying ? '⏸️ Pause' : '🔊 Read aloud';
+  btn.classList.toggle('playing', speechPlaying);
+}
+document.getElementById('cookSpeakBtn').onclick = ()=>{
+  if(speechPlaying) stopSpeaking();
+  else speakCurrentStep();
+};
+document.getElementById('cookReplayBtn').onclick = ()=> speakCurrentStep();
+document.querySelectorAll('.speed-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    speechRate = parseFloat(btn.dataset.rate);
+    document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(speechPlaying) speakCurrentStep();
+  };
+});
+
 document.getElementById('cookClose').onclick = closeCookMode;
 document.getElementById('cookPrev').onclick = ()=>{ if(cookStep>0){ cookStep--; renderCookStep(); } };
 document.getElementById('cookNext').onclick = ()=>{
