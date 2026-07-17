@@ -1832,12 +1832,13 @@ document.getElementById('clearGroceryBtn').onclick = async ()=>{
 
 /* ---------- Cook Mode ---------- */
 let cookRecipe = null, cookStep = 0, wakeLock = null;
-let speechPlaying = false, speechRate = 1;
+let autoReadOn = false, speechRate = 1;
 const cookOverlay = document.getElementById('cookOverlay');
 
 function openCookMode(r){
   cookRecipe = r;
   cookStep = 0;
+  autoReadOn = false;
   document.getElementById('cookTitle').textContent = r.title || 'Recipe';
   const ingHtml = (r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
   document.getElementById('cookIngList').innerHTML = ingHtml ? `<ul>${ingHtml}</ul>` : '<div>No ingredients listed.</div>';
@@ -1851,6 +1852,7 @@ function openCookMode(r){
 }
 function closeCookMode(){
   cookOverlay.classList.remove('open');
+  autoReadOn = false;
   stopSpeaking();
   if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
 }
@@ -1863,8 +1865,8 @@ function renderCookStep(){
   const nextBtn = document.getElementById('cookNext');
   if(cookStep >= total - 1){ nextBtn.textContent = '🎉 Done'; }
   else { nextBtn.textContent = 'Next →'; }
-  // If read-aloud was actively playing, keep reading through the new step.
-  if(speechPlaying) speakCurrentStep();
+  // Read-aloud mode stays on across steps until explicitly toggled off.
+  if(autoReadOn) speakCurrentStep();
 }
 
 /* ---------- Read aloud (Cook Mode) ---------- */
@@ -1874,24 +1876,22 @@ function speakCurrentStep(){
   const text = document.getElementById('cookStepText').textContent;
   const utter = new SpeechSynthesisUtterance(text);
   utter.rate = speechRate;
-  utter.onend = ()=>{ speechPlaying = false; updateSpeakBtn(); };
   window.speechSynthesis.speak(utter);
-  speechPlaying = true;
   updateSpeakBtn();
 }
 function stopSpeaking(){
   if('speechSynthesis' in window) window.speechSynthesis.cancel();
-  speechPlaying = false;
   updateSpeakBtn();
 }
 function updateSpeakBtn(){
   const btn = document.getElementById('cookSpeakBtn');
-  btn.textContent = speechPlaying ? '⏸️ Pause' : '🔊 Read aloud';
-  btn.classList.toggle('playing', speechPlaying);
+  btn.textContent = autoReadOn ? '⏸️ Stop reading' : '🔊 Read aloud';
+  btn.classList.toggle('playing', autoReadOn);
 }
 document.getElementById('cookSpeakBtn').onclick = ()=>{
-  if(speechPlaying) stopSpeaking();
-  else speakCurrentStep();
+  autoReadOn = !autoReadOn;
+  if(autoReadOn) speakCurrentStep();
+  else stopSpeaking();
 };
 document.getElementById('cookReplayBtn').onclick = ()=> speakCurrentStep();
 document.querySelectorAll('.speed-btn').forEach(btn=>{
@@ -1899,7 +1899,7 @@ document.querySelectorAll('.speed-btn').forEach(btn=>{
     speechRate = parseFloat(btn.dataset.rate);
     document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    if(speechPlaying) speakCurrentStep();
+    if(autoReadOn) speakCurrentStep();
   };
 });
 
