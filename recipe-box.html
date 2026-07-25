@@ -488,6 +488,7 @@
       <div class="sun-badge"><span>💪</span></div>
     </div>
     <div class="tabs" id="tabs"></div>
+    <div class="tabs" id="ownerTabs" style="display:none;"></div>
   </div>
   <div class="grid" id="grid"></div>
 </div>
@@ -735,6 +736,7 @@ const CAT_TEXT_ON = {
 
 let recipes = [];
 let activeFilter = "All";
+let activeOwnerFilter = "All";
 
 /* ---------- Auth & per-user data scoping ---------- */
 let currentUser = null;
@@ -823,7 +825,8 @@ async function ensureUserProfile(user){
             const data = docSnap.data();
             const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
             batch.set(fb.doc(fb.firestore, 'users', user.uid, 'recipes', newId), {
-              ...data, favorite: false, sharedFromUid: inviteUid, sharedFromName: inviter.name
+              ...data, favorite: false, sharedFromUid: inviteUid, sharedFromName: inviter.name,
+              ownerUid: data.ownerUid || inviteUid, ownerName: data.ownerName || inviter.name
             });
           });
           await batch.commit();
@@ -864,6 +867,7 @@ function clearApiKey(){ localStorage.removeItem('rbox_api_key'); }
 
 const grid = document.getElementById('grid');
 const tabsEl = document.getElementById('tabs');
+const ownerTabsEl = document.getElementById('ownerTabs');
 const input = document.getElementById('input');
 const addBtn = document.getElementById('addBtn');
 const statusEl = document.getElementById('status');
@@ -1167,7 +1171,10 @@ async function renderInbox(){
     const it = items.find(i=>i.id===id);
     row.querySelector('.accept-btn').onclick = async ()=>{
       const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
-      const data = { ...it.recipe, favorite:false, sharedFromUid: it.fromUid, sharedFromName: it.fromName };
+      const data = {
+        ...it.recipe, favorite:false, sharedFromUid: it.fromUid, sharedFromName: it.fromName,
+        ownerUid: it.recipe.ownerUid || it.fromUid, ownerName: it.recipe.ownerName || it.fromName
+      };
       delete data.id;
       await fb.setDoc(fb.doc(recipesCol(), newId), data);
       await fb.deleteDoc(fb.doc(inboxCol(), id));
@@ -1310,6 +1317,14 @@ function normalize(r){
   if(typeof r.favorite !== 'boolean') r.favorite = false;
   if(!Array.isArray(r.qualifiers)) r.qualifiers = [];
   if(typeof r.macrosEstimated !== 'boolean') r.macrosEstimated = false;
+  if(!r.ownerUid){
+    // Backfills recipes created before ownership tracking existed, and stamps
+    // brand-new recipes at creation (normalize() runs on both paths). Copies
+    // made via invite/"Send to" always arrive with ownerUid already set, so
+    // this never overwrites a preserved original owner.
+    r.ownerUid = currentUser.uid;
+    r.ownerName = (currentProfile && currentProfile.name) || 'You';
+  }
   return r;
 }
 
@@ -1348,12 +1363,47 @@ function renderTabs(){
   });
 }
 
+function attributionBadge(r){
+  const isMine = r.ownerUid === currentUser.uid;
+  if(isMine) return `<div class="qualifiers" style="margin-bottom:6px;">👤 Yours</div>`;
+  const ownerName = escapeHtml(r.ownerName || 'Someone');
+  const forwarded = r.sharedFromName && r.sharedFromName !== r.ownerName;
+  const label = forwarded ? `🎁 ${ownerName}'s · via ${escapeHtml(r.sharedFromName)}` : `🎁 from ${ownerName}`;
+  return `<div class="qualifiers" style="margin-bottom:6px;">${label}</div>`;
+}
+
+function renderOwnerTabs(){
+  const ownerMap = new Map(); // uid -> name
+  recipes.forEach(r => { if(r.ownerUid) ownerMap.set(r.ownerUid, r.ownerName || 'Someone'); });
+  if(ownerMap.size < 2){
+    ownerTabsEl.style.display = 'none';
+    ownerTabsEl.innerHTML = '';
+    activeOwnerFilter = "All";
+    return;
+  }
+  ownerTabsEl.style.display = 'flex';
+  ownerTabsEl.innerHTML = '';
+  const owners = [{ uid: "All", name: "All" }, ...[...ownerMap.entries()].map(([uid,name])=>({uid,name}))];
+  owners.forEach(o=>{
+    const btn = document.createElement('button');
+    const isYou = o.uid === currentUser.uid;
+    const label = o.uid === "All" ? "All" : (isYou ? `${o.name} (You)` : o.name);
+    btn.className = 'tab' + (o.uid===activeOwnerFilter ? ' active' : '');
+    btn.style.background = o.uid===activeOwnerFilter ? 'var(--ink)' : '';
+    btn.textContent = label;
+    btn.onclick = ()=>{ activeOwnerFilter = o.uid; render(); };
+    ownerTabsEl.appendChild(btn);
+  });
+}
+
 function render(){
   renderTabs();
+  renderOwnerTabs();
   let filtered;
   if(activeFilter === "All") filtered = recipes;
   else if(activeFilter === "❤️ Favorites") filtered = recipes.filter(r => r.favorite);
   else filtered = recipes.filter(r => r.categories.includes(activeFilter));
+  if(activeOwnerFilter !== "All") filtered = filtered.filter(r => r.ownerUid === activeOwnerFilter);
   grid.innerHTML = '';
   if(filtered.length === 0){
     const emptyMsg = recipes.length===0
@@ -1370,7 +1420,7 @@ function render(){
     const ingredientsHtml = (r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
     const instructionsHtml = (r.instructions||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
     const imgHtml = r.image ? `<img class="rcard-img" src="${r.image}" alt="">` : '';
-    const fromBadge = r.sharedFromName ? `<div class="qualifiers" style="margin-bottom:6px;">🎁 from ${escapeHtml(r.sharedFromName)}</div>` : '';
+    const fromBadge = attributionBadge(r);
     card.innerHTML = `
       ${imgHtml}
       <button class="heart">${r.favorite ? '❤️' : '🤍'}</button>
