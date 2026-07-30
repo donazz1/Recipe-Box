@@ -1433,6 +1433,23 @@ async function runImport(file){
     const r = validateImportRow(raw);
     if(r.error){ errors.push({ title: (raw && raw.title) || '(untitled)', reason: r.error }); continue; }
 
+    // Firestore caps each document at 1MB — a single recipe's photo alone
+    // can blow past that. Catch it here instead of letting the write fail.
+    if(JSON.stringify(r).length > 900000){
+      if(r.image){
+        r.image = null; // drop the oversized photo but still import the recipe text
+        const key0 = normalizeImportKey(r.title, r.sourceUrl);
+        if(!seenInBatch.has(key0)){
+          seenInBatch.add(key0);
+          imported.push(r);
+        } else { skippedDup.push(r.title); }
+        errors.push({ title: r.title, reason: "Photo was too large — imported without it" });
+      } else {
+        errors.push({ title: r.title, reason: "Too large to import — check its content" });
+      }
+      continue;
+    }
+
     const key = normalizeImportKey(r.title, r.sourceUrl);
     if(seenInBatch.has(key)){ skippedDup.push(r.title); continue; }
     seenInBatch.add(key);
@@ -1448,13 +1465,35 @@ async function runImport(file){
 
   if(imported.length){
     try{
-      const batch = fb.writeBatch(fb.firestore);
-      imported.forEach(r=>{
-        const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
-        r.addedAt = Date.now();
-        batch.set(fb.doc(recipesCol(), newId), r);
-      });
-      await batch.commit();
+      // Firestore caps a single batch write around ~10MB total. With photos
+      // embedded as base64 in each recipe, a big batch can exceed that in one
+      // shot — so split into smaller chunks by estimated size, not just count.
+      const MAX_CHUNK_BYTES = 6 * 1024 * 1024; // safety margin under the ~10MB ceiling
+      const chunks = [];
+      let current = [], currentSize = 0;
+      for(const r of imported){
+        const size = JSON.stringify(r).length;
+        if(current.length > 0 && (currentSize + size > MAX_CHUNK_BYTES || current.length >= 200)){
+          chunks.push(current);
+          current = []; currentSize = 0;
+        }
+        current.push(r);
+        currentSize += size;
+      }
+      if(current.length) chunks.push(current);
+
+      for(let ci = 0; ci < chunks.length; ci++){
+        if(chunks.length > 1){
+          statusEl4.textContent = `Saving batch ${ci+1} of ${chunks.length}…`;
+        }
+        const batch = fb.writeBatch(fb.firestore);
+        chunks[ci].forEach(r=>{
+          const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
+          r.addedAt = Date.now();
+          batch.set(fb.doc(recipesCol(), newId), r);
+        });
+        await batch.commit();
+      }
     }catch(e){
       console.error(e);
       statusEl4.textContent = 'Hiccup saving the batch: ' + (e.message||'try again');
