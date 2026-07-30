@@ -623,6 +623,18 @@
     <div class="status" id="importStatus" style="margin-top:10px;"></div>
   </div>
   <div id="importSummary"></div>
+
+  <div class="import-summary-card">
+    <h3>🗑️ Remove a previous Video → Recipe import</h3>
+    <p style="margin:0 0 10px; font-size:12.5px; font-weight:700; color:var(--ink-soft);">Only removes recipes that came in through this import feature — anything you typed by hand or added yourself is never touched.</p>
+    <button class="pill-btn" id="findCleanupBtn" style="width:100%; background:var(--berry);">Find recipes to remove</button>
+    <div id="cleanupArea"></div>
+  </div>
+
+  <div class="import-summary-card">
+    <h3>🕓 Recent imports</h3>
+    <div id="importHistoryList" style="font-size:12.5px; color:var(--ink-soft); font-weight:700;">Loading…</div>
+  </div>
 </div>
 
 <!-- GROCERY -->
@@ -932,6 +944,43 @@ function compressImage(file){
   });
 }
 
+// Same idea as compressImage(), but starting from a data URL (used for bulk
+// import, where photos arrive already base64-encoded rather than as a File).
+function compressImageDataUrl(dataUrl, maxW, quality){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+// Progressively compress harder until it fits, rather than a single fixed pass.
+async function fitImageUnderSize(dataUrl, maxBytes){
+  const passes = [
+    { maxW: 900, quality: 0.72 },
+    { maxW: 700, quality: 0.65 },
+    { maxW: 500, quality: 0.6 },
+    { maxW: 360, quality: 0.55 },
+  ];
+  let current = dataUrl;
+  for(const pass of passes){
+    try{
+      current = await compressImageDataUrl(current, pass.maxW, pass.quality);
+    }catch(e){ break; }
+    if(current.length <= maxBytes) return current;
+  }
+  return current; // best effort — caller still checks final size
+}
+
 function setPendingImage(dataUrl){
   pendingImage = dataUrl;
   photoPreview.innerHTML = dataUrl
@@ -1114,7 +1163,9 @@ document.getElementById('importMenuBtn').onclick = ()=>{
   document.getElementById('importSummary').innerHTML = '';
   document.getElementById('importStatus').textContent = '';
   document.getElementById('importFileInput').value = '';
+  document.getElementById('cleanupArea').innerHTML = '';
   showScreen('import');
+  renderImportHistory();
 };
 document.getElementById('restoreMenuBtn').onclick = async ()=>{
   if(!confirm('Pull over any recipes from your old shared box into your new profile?')) return;
@@ -1353,6 +1404,7 @@ function normalize(r){
   if(!Array.isArray(r.qualifiers)) r.qualifiers = [];
   if(typeof r.macrosEstimated !== 'boolean') r.macrosEstimated = false;
   if(typeof r.sourceUrl !== 'string') r.sourceUrl = null;
+  if(typeof r.importedFrom !== 'string') r.importedFrom = null;
   return r;
 }
 
@@ -1396,6 +1448,8 @@ async function runImport(file){
   summaryEl.innerHTML = '';
   statusEl4.textContent = 'Reading file…'; statusEl4.className = 'status';
 
+  const importBatchId = 'batch' + Date.now();
+
   let parsed;
   try{
     parsed = JSON.parse(await file.text());
@@ -1427,23 +1481,37 @@ async function runImport(file){
   const skippedDup = [];
   const needsReview = [];
   const errors = [];
+  const photoDropped = [];
   const seenInBatch = new Set();
 
   for(const raw of rows){
     const r = validateImportRow(raw);
     if(r.error){ errors.push({ title: (raw && raw.title) || '(untitled)', reason: r.error }); continue; }
 
-    // Firestore caps each document at 1MB — a single recipe's photo alone
-    // can blow past that. Catch it here instead of letting the write fail.
-    if(JSON.stringify(r).length > 900000){
+    // Provenance — lets "Remove a previous import" target exactly these,
+    // never anything typed by hand or added another way.
+    r.importedFrom = 'video-to-recipe';
+    r.importBatchId = importBatchId;
+    r.importedAt = Date.now();
+
+    // If the photo (usually the culprit) pushes this recipe near Firestore's
+    // 1MB-per-document cap, compress it harder instead of dropping it.
+    if(r.image && JSON.stringify(r).length > 900000){
+      try{
+        r.image = await fitImageUnderSize(r.image, 850000);
+      }catch(e){
+        console.error('Compression failed for', r.title, e);
+      }
+    }
+    if(JSON.stringify(r).length > 950000){
       if(r.image){
-        r.image = null; // drop the oversized photo but still import the recipe text
+        r.image = null; // last resort — even heavy compression couldn't get it under the cap
         const key0 = normalizeImportKey(r.title, r.sourceUrl);
         if(!seenInBatch.has(key0)){
           seenInBatch.add(key0);
           imported.push(r);
+          photoDropped.push(r.title);
         } else { skippedDup.push(r.title); }
-        errors.push({ title: r.title, reason: "Photo was too large — imported without it" });
       } else {
         errors.push({ title: r.title, reason: "Too large to import — check its content" });
       }
@@ -1506,14 +1574,67 @@ async function runImport(file){
   await loadRecipes();
   statusEl4.textContent = '';
   goBtn.disabled = false;
-  renderImportSummary(imported.length, skippedDup.length, needsReview, errors);
+
+  await logImportHistory({
+    type: 'import',
+    importedCount: imported.length,
+    skippedCount: skippedDup.length,
+    errorsCount: errors.length,
+    libraryTotal: recipes.length,
+    importBatchId,
+  });
+  renderImportSummary(imported.length, skippedDup.length, needsReview, errors, photoDropped);
+  renderImportHistory();
 }
 
-function renderImportSummary(importedCount, dupCount, needsReview, errors){
+/* ---------- Import history log ---------- */
+function fmtStamp(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, { year:'numeric', month:'2-digit', day:'2-digit' }) + ' ' +
+         d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+}
+async function logImportHistory(entry){
+  try{
+    await userReady;
+    const id = 'h' + Date.now() + Math.random().toString(36).slice(2,7);
+    await fb.setDoc(fb.doc(fb.firestore, 'users', currentUser.uid, 'importHistory', id), {
+      ...entry, timestamp: Date.now(),
+    });
+  }catch(e){ console.error('Failed to log import history:', e); }
+}
+async function renderImportHistory(){
+  const el = document.getElementById('importHistoryList');
+  if(!el) return;
+  el.textContent = 'Loading…';
+  try{
+    await userReady;
+    const snaps = await fb.getDocs(fb.collection(fb.firestore, 'users', currentUser.uid, 'importHistory'));
+    const items = [];
+    snaps.forEach(s => items.push(s.data()));
+    items.sort((a,b)=> (b.timestamp||0) - (a.timestamp||0));
+    if(items.length === 0){ el.textContent = 'No imports yet.'; return; }
+    el.innerHTML = items.slice(0, 15).map(it=>{
+      const stamp = fmtStamp(it.timestamp);
+      if(it.type === 'cleanup'){
+        return `<div style="margin-bottom:8px;">${stamp} — Removed ${it.removedCount} recipes from a previous Video → Recipe import · Library total now ${it.libraryTotal}</div>`;
+      }
+      const parts = [`Imported ${it.importedCount}`, `Skipped ${it.skippedCount}`, `Errors ${it.errorsCount}`];
+      return `<div style="margin-bottom:8px;">${stamp} — ${parts.join(' · ')} · Library total now ${it.libraryTotal}</div>`;
+    }).join('');
+  }catch(e){
+    console.error(e);
+    el.textContent = "Couldn't load import history.";
+  }
+}
+
+function renderImportSummary(importedCount, dupCount, needsReview, errors, photoDropped){
+  photoDropped = photoDropped || [];
   const summaryEl = document.getElementById('importSummary');
+  const stamp = fmtStamp(Date.now());
   let html = `
     <div class="import-summary-card">
       <h3>Import summary</h3>
+      <p style="margin:0 0 10px; font-size:12px; font-weight:800; color:var(--ink-soft);">${stamp}</p>
       <div class="import-stat-row">
         <div class="import-stat"><div class="n">${importedCount}</div><div class="l">Imported</div></div>
         <div class="import-stat"><div class="n">${dupCount}</div><div class="l">Already had</div></div>
@@ -1522,6 +1643,14 @@ function renderImportSummary(importedCount, dupCount, needsReview, errors){
       </div>
     </div>
   `;
+  if(photoDropped.length){
+    html += `<div class="import-summary-card"><h3>✅ Imported, but photo was too big to save</h3>
+      <p style="margin:0 0 10px; font-size:12.5px; font-weight:700; color:var(--ink-soft);">These recipes are in your library just fine — only the photo was skipped. Use "Add photo" on the card if you want to re-attach a smaller one.</p>`;
+    photoDropped.forEach(title=>{
+      html += `<div class="review-item"><div class="rt">${escapeHtml(title)}</div></div>`;
+    });
+    html += `</div>`;
+  }
   if(needsReview.length){
     html += `<div class="import-summary-card"><h3>Different from what you already have</h3>`;
     needsReview.forEach((item, i)=>{
@@ -1572,6 +1701,63 @@ document.getElementById('importGoBtn').onclick = ()=>{
   }
   runImport(file);
 };
+
+/* ---------- Remove a previous Video → Recipe import ---------- */
+document.getElementById('findCleanupBtn').onclick = async ()=>{
+  const area = document.getElementById('cleanupArea');
+  area.innerHTML = '<p style="margin-top:10px; font-size:12.5px; font-weight:700; color:var(--ink-soft);">Looking…</p>';
+  await userReady;
+  await loadRecipes();
+  // Prefer real provenance (tagged by every import going forward). Fall back
+  // to a conservative link-pattern heuristic only for untagged legacy imports —
+  // never touches hand-entered recipes, which never have a sourceUrl at all.
+  const candidates = recipes.filter(r =>
+    r.importedFrom === 'video-to-recipe' ||
+    (!r.importedFrom && r.sourceUrl && /youtube\.com|youtu\.be|instagram\.com|tiktok\.com|notes:\/\/local/i.test(r.sourceUrl))
+  );
+  renderCleanupCandidates(candidates);
+};
+
+function renderCleanupCandidates(candidates){
+  const area = document.getElementById('cleanupArea');
+  if(candidates.length === 0){
+    area.innerHTML = `<p style="margin-top:10px; font-size:12.5px; font-weight:700; color:var(--ink-soft);">No recipes from a Video → Recipe import were found.</p>`;
+    return;
+  }
+  area.innerHTML = `
+    <p style="margin:12px 0 8px; font-size:12.5px; font-weight:800;">Found ${candidates.length} recipe${candidates.length===1?'':'s'} — uncheck any you want to keep:</p>
+    <div id="cleanupList" style="max-height:240px; overflow:auto; margin-bottom:10px;">
+      ${candidates.map(r=>`
+        <label style="display:flex; align-items:center; gap:8px; padding:8px 4px; font-size:13px; font-weight:700;">
+          <input type="checkbox" class="cleanup-check" data-id="${r.id}" checked>
+          ${escapeHtml(r.title||'Untitled')}
+        </label>
+      `).join('')}
+    </div>
+    <button class="pill-btn" id="confirmCleanupBtn" style="width:100%; background:var(--berry);">Delete selected recipes</button>
+    <div class="status" id="cleanupStatus" style="margin-top:8px;"></div>
+  `;
+  document.getElementById('confirmCleanupBtn').onclick = async ()=>{
+    const checked = Array.from(document.querySelectorAll('.cleanup-check:checked')).map(el=>el.dataset.id);
+    const statusEl5 = document.getElementById('cleanupStatus');
+    if(checked.length === 0){ statusEl5.textContent = 'Nothing selected.'; return; }
+    if(!confirm(`Delete ${checked.length} recipe${checked.length===1?'':'s'} from the previous Video → Recipe import? Your other recipes will stay.`)) return;
+    statusEl5.textContent = 'Removing…'; statusEl5.className = 'status';
+    try{
+      for(const id of checked){ await db.delete(`recipe:${id}`); }
+      await loadRecipes();
+      await logImportHistory({ type:'cleanup', removedCount: checked.length, libraryTotal: recipes.length });
+      showToast(`✅ Removed ${checked.length} recipes`);
+      document.getElementById('cleanupArea').innerHTML =
+        `<p style="margin-top:10px; font-size:12.5px; font-weight:700; color:var(--mint);">Removed ${checked.length} imported recipes. Your library now has ${recipes.length} recipes.</p>`;
+      renderImportHistory();
+    }catch(e){
+      console.error(e);
+      statusEl5.textContent = 'Hiccup removing those — try again.';
+      statusEl5.className = 'status err';
+    }
+  };
+}
 
 async function loadRecipes(){
   try{
