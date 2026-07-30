@@ -341,6 +341,29 @@
   .act-btn:active{ transform:scale(0.97); }
 
   /* ---------- Grocery list ---------- */
+  .import-summary-card{
+    background:var(--card); border-radius:20px; padding:18px; margin-top:16px;
+    box-shadow:0 2px 8px rgba(42,33,64,0.05);
+  }
+  .import-summary-card h3{ font-family:'Fraunces',serif; font-size:16px; margin:0 0 10px; }
+  .import-stat-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .import-stat{
+    flex:1; min-width:80px; background:#FAF6EA; border-radius:14px; padding:10px 8px; text-align:center;
+  }
+  .import-stat .n{ font-family:'Fraunces',serif; font-size:20px; font-weight:700; }
+  .import-stat .l{ font-size:10px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; }
+  .review-item{
+    background:#FAF6EA; border-radius:14px; padding:12px 14px; margin-top:10px;
+  }
+  .review-item .rt{ font-weight:800; font-size:13.5px; margin-bottom:4px; }
+  .review-item .rd{ font-size:11.5px; color:var(--ink-soft); font-weight:700; margin-bottom:8px; }
+  .review-item .ractions{ display:flex; gap:8px; }
+  .review-item button{
+    flex:1; border:none; padding:8px; border-radius:100px; font-weight:800; font-size:12px; cursor:pointer;
+    font-family:'Nunito',sans-serif;
+  }
+  .review-item .keep-btn{ background:var(--mint); color:#fff; }
+  .review-item .skip-btn{ background:#E8DFC9; color:var(--ink); }
   .grocery-item{
     display:flex; align-items:center; gap:12px; background:var(--card);
     border-radius:16px; padding:14px 16px; margin-bottom:8px; box-shadow:0 2px 8px rgba(42,33,64,0.05);
@@ -488,7 +511,6 @@
       <div class="sun-badge"><span>💪</span></div>
     </div>
     <div class="tabs" id="tabs"></div>
-    <div class="tabs" id="ownerTabs" style="display:none;"></div>
   </div>
   <div class="grid" id="grid"></div>
 </div>
@@ -584,10 +606,23 @@
   <div class="menu-item" id="groceryMenuBtn"><span class="ic">🛒</span> Grocery List</div>
   <div class="menu-item" id="inboxMenuBtn"><span class="ic">📥</span> Shared with you <span id="inboxBadge" style="display:none;"></span></div>
   <div class="menu-item" id="contactsMenuBtn"><span class="ic">👥</span> My Contacts</div>
+  <div class="menu-item" id="importMenuBtn"><span class="ic">📲</span> Import recipes</div>
   <div class="menu-item" id="restoreMenuBtn"><span class="ic">📦</span> Restore my old recipes</div>
   <div class="menu-item" id="exportMenuBtn"><span class="ic">📤</span> Export all recipes</div>
   <div class="menu-item danger" id="signOutBtn"><span class="ic">🚪</span> Sign out</div>
   <div class="menu-item danger" id="clearAllBtn"><span class="ic">🗑️</span> Clear all recipes</div>
+</div>
+
+<!-- IMPORT -->
+<div class="screen" id="screen-import">
+  <div class="topbar"><div class="greet"><h1>Import recipes</h1><p>From your Video → Recipe export</p></div></div>
+  <div class="invite-card" style="text-align:left;">
+    <p style="margin:0 0 14px; font-size:13.5px; color:var(--ink-soft); font-weight:700;">Choose a JSON file exported from Video → Recipe. Works for one recipe or a big batch — nothing gets overwritten, and duplicates are handled for you.</p>
+    <input type="file" id="importFileInput" accept=".json,application/json" style="width:100%; padding:12px 14px; border-radius:12px; border:2px solid var(--line); font-family:'Nunito',sans-serif; font-size:13px; font-weight:700; margin-bottom:12px; background:#fff;">
+    <button class="pill-btn copy" id="importGoBtn" style="width:100%;">📲 Import file</button>
+    <div class="status" id="importStatus" style="margin-top:10px;"></div>
+  </div>
+  <div id="importSummary"></div>
 </div>
 
 <!-- GROCERY -->
@@ -736,7 +771,6 @@ const CAT_TEXT_ON = {
 
 let recipes = [];
 let activeFilter = "All";
-let activeOwnerFilter = "All";
 
 /* ---------- Auth & per-user data scoping ---------- */
 let currentUser = null;
@@ -825,8 +859,7 @@ async function ensureUserProfile(user){
             const data = docSnap.data();
             const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
             batch.set(fb.doc(fb.firestore, 'users', user.uid, 'recipes', newId), {
-              ...data, favorite: false, sharedFromUid: inviteUid, sharedFromName: inviter.name,
-              ownerUid: data.ownerUid || inviteUid, ownerName: data.ownerName || inviter.name
+              ...data, favorite: false, sharedFromUid: inviteUid, sharedFromName: inviter.name
             });
           });
           await batch.commit();
@@ -867,7 +900,6 @@ function clearApiKey(){ localStorage.removeItem('rbox_api_key'); }
 
 const grid = document.getElementById('grid');
 const tabsEl = document.getElementById('tabs');
-const ownerTabsEl = document.getElementById('ownerTabs');
 const input = document.getElementById('input');
 const addBtn = document.getElementById('addBtn');
 const statusEl = document.getElementById('status');
@@ -1060,7 +1092,7 @@ input.addEventListener('paste', (e)=>{
 function showScreen(name){
   document.querySelectorAll('.navbtn').forEach(b=>{
     const isMatch = b.dataset.screen === name
-      || (['grocery','inbox','contacts'].includes(name) && b.dataset.screen==='menu');
+      || (['grocery','inbox','contacts','import'].includes(name) && b.dataset.screen==='menu');
     b.classList.toggle('active', isMatch);
   });
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -1078,6 +1110,12 @@ document.querySelectorAll('.navbtn').forEach(btn=>{
 });
 document.getElementById('inboxMenuBtn').onclick = ()=> showScreen('inbox');
 document.getElementById('contactsMenuBtn').onclick = ()=> showScreen('contacts');
+document.getElementById('importMenuBtn').onclick = ()=>{
+  document.getElementById('importSummary').innerHTML = '';
+  document.getElementById('importStatus').textContent = '';
+  document.getElementById('importFileInput').value = '';
+  showScreen('import');
+};
 document.getElementById('restoreMenuBtn').onclick = async ()=>{
   if(!confirm('Pull over any recipes from your old shared box into your new profile?')) return;
   const btn = document.getElementById('restoreMenuBtn');
@@ -1171,10 +1209,7 @@ async function renderInbox(){
     const it = items.find(i=>i.id===id);
     row.querySelector('.accept-btn').onclick = async ()=>{
       const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
-      const data = {
-        ...it.recipe, favorite:false, sharedFromUid: it.fromUid, sharedFromName: it.fromName,
-        ownerUid: it.recipe.ownerUid || it.fromUid, ownerName: it.recipe.ownerName || it.fromName
-      };
+      const data = { ...it.recipe, favorite:false, sharedFromUid: it.fromUid, sharedFromName: it.fromName };
       delete data.id;
       await fb.setDoc(fb.doc(recipesCol(), newId), data);
       await fb.deleteDoc(fb.doc(inboxCol(), id));
@@ -1317,16 +1352,187 @@ function normalize(r){
   if(typeof r.favorite !== 'boolean') r.favorite = false;
   if(!Array.isArray(r.qualifiers)) r.qualifiers = [];
   if(typeof r.macrosEstimated !== 'boolean') r.macrosEstimated = false;
-  if(!r.ownerUid){
-    // Backfills recipes created before ownership tracking existed, and stamps
-    // brand-new recipes at creation (normalize() runs on both paths). Copies
-    // made via invite/"Send to" always arrive with ownerUid already set, so
-    // this never overwrites a preserved original owner.
-    r.ownerUid = currentUser.uid;
-    r.ownerName = (currentProfile && currentProfile.name) || 'You';
-  }
+  if(typeof r.sourceUrl !== 'string') r.sourceUrl = null;
   return r;
 }
+
+/* ---------- Bulk import (from Video → Recipe export) ---------- */
+function normalizeImportKey(title, sourceUrl){
+  return String(title||'').trim().toLowerCase() + '||' + String(sourceUrl||'').trim().toLowerCase();
+}
+function contentSignature(r){
+  return JSON.stringify({
+    ing: (r.ingredients||[]).map(s=>String(s).trim().toLowerCase()),
+    ins: (r.instructions||[]).map(s=>String(s).trim().toLowerCase())
+  });
+}
+function validateImportRow(raw){
+  if(!raw || typeof raw !== 'object') return { error: 'Not a valid recipe entry' };
+  if(!raw.title || !String(raw.title).trim()) return { error: 'Missing title' };
+  const r = {
+    title: String(raw.title).trim(),
+    categories: Array.isArray(raw.categories) ? raw.categories : [],
+    qualifiers: Array.isArray(raw.qualifiers) ? raw.qualifiers.map(String) : [],
+    serving: raw.serving ? String(raw.serving) : '',
+    calories: (typeof raw.calories === 'number') ? raw.calories : null,
+    protein: (typeof raw.protein === 'number') ? raw.protein : null,
+    fat: (typeof raw.fat === 'number') ? raw.fat : null,
+    carbs: (typeof raw.carbs === 'number') ? raw.carbs : null,
+    macrosEstimated: !!raw.macrosEstimated,
+    ingredients: Array.isArray(raw.ingredients) ? raw.ingredients.map(String) : [],
+    instructions: Array.isArray(raw.instructions) ? raw.instructions.map(String) : [],
+    sourceUrl: raw.sourceUrl ? String(raw.sourceUrl) : null,
+    image: (typeof raw.image === 'string' && raw.image.startsWith('data:image/')) ? raw.image : null,
+    favorite: false,
+  };
+  return normalize(r);
+}
+
+async function runImport(file){
+  const statusEl4 = document.getElementById('importStatus');
+  const summaryEl = document.getElementById('importSummary');
+  const goBtn = document.getElementById('importGoBtn');
+  goBtn.disabled = true;
+  summaryEl.innerHTML = '';
+  statusEl4.textContent = 'Reading file…'; statusEl4.className = 'status';
+
+  let parsed;
+  try{
+    parsed = JSON.parse(await file.text());
+  }catch(e){
+    statusEl4.textContent = "That file isn't valid JSON — try exporting again.";
+    statusEl4.className = 'status err';
+    goBtn.disabled = false;
+    return;
+  }
+
+  let rows;
+  if(parsed && Array.isArray(parsed.recipes)) rows = parsed.recipes;
+  else if(parsed && parsed.title) rows = [parsed];
+  else {
+    statusEl4.textContent = "Couldn't find any recipes in that file.";
+    statusEl4.className = 'status err';
+    goBtn.disabled = false;
+    return;
+  }
+
+  statusEl4.textContent = `Checking ${rows.length} recipe${rows.length===1?'':'s'} against your library…`;
+  await userReady;
+  await loadRecipes();
+
+  const existingByKey = new Map();
+  recipes.forEach(r => existingByKey.set(normalizeImportKey(r.title, r.sourceUrl), r));
+
+  const imported = [];
+  const skippedDup = [];
+  const needsReview = [];
+  const errors = [];
+  const seenInBatch = new Set();
+
+  for(const raw of rows){
+    const r = validateImportRow(raw);
+    if(r.error){ errors.push({ title: (raw && raw.title) || '(untitled)', reason: r.error }); continue; }
+
+    const key = normalizeImportKey(r.title, r.sourceUrl);
+    if(seenInBatch.has(key)){ skippedDup.push(r.title); continue; }
+    seenInBatch.add(key);
+
+    const existing = existingByKey.get(key);
+    if(existing){
+      if(contentSignature(existing) === contentSignature(r)) skippedDup.push(r.title);
+      else needsReview.push({ incoming: r });
+      continue;
+    }
+    imported.push(r);
+  }
+
+  if(imported.length){
+    try{
+      const batch = fb.writeBatch(fb.firestore);
+      imported.forEach(r=>{
+        const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
+        r.addedAt = Date.now();
+        batch.set(fb.doc(recipesCol(), newId), r);
+      });
+      await batch.commit();
+    }catch(e){
+      console.error(e);
+      statusEl4.textContent = 'Hiccup saving the batch: ' + (e.message||'try again');
+      statusEl4.className = 'status err';
+      goBtn.disabled = false;
+      return;
+    }
+  }
+
+  await loadRecipes();
+  statusEl4.textContent = '';
+  goBtn.disabled = false;
+  renderImportSummary(imported.length, skippedDup.length, needsReview, errors);
+}
+
+function renderImportSummary(importedCount, dupCount, needsReview, errors){
+  const summaryEl = document.getElementById('importSummary');
+  let html = `
+    <div class="import-summary-card">
+      <h3>Import summary</h3>
+      <div class="import-stat-row">
+        <div class="import-stat"><div class="n">${importedCount}</div><div class="l">Imported</div></div>
+        <div class="import-stat"><div class="n">${dupCount}</div><div class="l">Already had</div></div>
+        <div class="import-stat"><div class="n">${needsReview.length}</div><div class="l">Needs review</div></div>
+        <div class="import-stat"><div class="n">${errors.length}</div><div class="l">Couldn't read</div></div>
+      </div>
+    </div>
+  `;
+  if(needsReview.length){
+    html += `<div class="import-summary-card"><h3>Different from what you already have</h3>`;
+    needsReview.forEach((item, i)=>{
+      html += `
+        <div class="review-item" data-idx="${i}">
+          <div class="rt">${escapeHtml(item.incoming.title)}</div>
+          <div class="rd">Same title/source as one you already have, but the contents differ.</div>
+          <div class="ractions">
+            <button class="keep-btn">Import as new</button>
+            <button class="skip-btn">Skip it</button>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+  if(errors.length){
+    html += `<div class="import-summary-card"><h3>Couldn't read</h3>`;
+    errors.forEach(e=>{
+      html += `<div class="review-item"><div class="rt">${escapeHtml(e.title)}</div><div class="rd">${escapeHtml(e.reason)}</div></div>`;
+    });
+    html += `</div>`;
+  }
+  summaryEl.innerHTML = html;
+
+  summaryEl.querySelectorAll('.review-item .keep-btn').forEach((btn, i)=>{
+    btn.onclick = async ()=>{
+      const item = needsReview[i];
+      const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
+      item.incoming.addedAt = Date.now();
+      await db.set(`recipe:${newId}`, JSON.stringify(item.incoming), false);
+      showToast('✅ Imported as a new recipe');
+      btn.closest('.review-item').remove();
+      await loadRecipes();
+    };
+  });
+  summaryEl.querySelectorAll('.review-item .skip-btn').forEach((btn)=>{
+    btn.onclick = ()=> btn.closest('.review-item').remove();
+  });
+}
+
+document.getElementById('importGoBtn').onclick = ()=>{
+  const file = document.getElementById('importFileInput').files[0];
+  if(!file){
+    document.getElementById('importStatus').textContent = 'Choose a file first.';
+    document.getElementById('importStatus').className = 'status err';
+    return;
+  }
+  runImport(file);
+};
 
 async function loadRecipes(){
   try{
@@ -1363,47 +1569,12 @@ function renderTabs(){
   });
 }
 
-function attributionBadge(r){
-  const isMine = r.ownerUid === currentUser.uid;
-  if(isMine) return `<div class="qualifiers" style="margin-bottom:6px;">👤 Yours</div>`;
-  const ownerName = escapeHtml(r.ownerName || 'Someone');
-  const forwarded = r.sharedFromName && r.sharedFromName !== r.ownerName;
-  const label = forwarded ? `🎁 ${ownerName}'s · via ${escapeHtml(r.sharedFromName)}` : `🎁 from ${ownerName}`;
-  return `<div class="qualifiers" style="margin-bottom:6px;">${label}</div>`;
-}
-
-function renderOwnerTabs(){
-  const ownerMap = new Map(); // uid -> name
-  recipes.forEach(r => { if(r.ownerUid) ownerMap.set(r.ownerUid, r.ownerName || 'Someone'); });
-  if(ownerMap.size < 2){
-    ownerTabsEl.style.display = 'none';
-    ownerTabsEl.innerHTML = '';
-    activeOwnerFilter = "All";
-    return;
-  }
-  ownerTabsEl.style.display = 'flex';
-  ownerTabsEl.innerHTML = '';
-  const owners = [{ uid: "All", name: "All" }, ...[...ownerMap.entries()].map(([uid,name])=>({uid,name}))];
-  owners.forEach(o=>{
-    const btn = document.createElement('button');
-    const isYou = o.uid === currentUser.uid;
-    const label = o.uid === "All" ? "All" : (isYou ? `${o.name} (You)` : o.name);
-    btn.className = 'tab' + (o.uid===activeOwnerFilter ? ' active' : '');
-    btn.style.background = o.uid===activeOwnerFilter ? 'var(--ink)' : '';
-    btn.textContent = label;
-    btn.onclick = ()=>{ activeOwnerFilter = o.uid; render(); };
-    ownerTabsEl.appendChild(btn);
-  });
-}
-
 function render(){
   renderTabs();
-  renderOwnerTabs();
   let filtered;
   if(activeFilter === "All") filtered = recipes;
   else if(activeFilter === "❤️ Favorites") filtered = recipes.filter(r => r.favorite);
   else filtered = recipes.filter(r => r.categories.includes(activeFilter));
-  if(activeOwnerFilter !== "All") filtered = filtered.filter(r => r.ownerUid === activeOwnerFilter);
   grid.innerHTML = '';
   if(filtered.length === 0){
     const emptyMsg = recipes.length===0
@@ -1420,7 +1591,7 @@ function render(){
     const ingredientsHtml = (r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
     const instructionsHtml = (r.instructions||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
     const imgHtml = r.image ? `<img class="rcard-img" src="${r.image}" alt="">` : '';
-    const fromBadge = attributionBadge(r);
+    const fromBadge = r.sharedFromName ? `<div class="qualifiers" style="margin-bottom:6px;">🎁 from ${escapeHtml(r.sharedFromName)}</div>` : '';
     card.innerHTML = `
       ${imgHtml}
       <button class="heart">${r.favorite ? '❤️' : '🤍'}</button>
@@ -1439,6 +1610,9 @@ function render(){
         ${ingredientsHtml ? `<h4>Ingredients</h4><ul>${ingredientsHtml}</ul>` : ''}
         ${instructionsHtml ? `<h4>Instructions</h4><ol>${instructionsHtml}</ol>` : ''}
         <div class="expand-actions">
+          ${r.sourceUrl && /^https?:\/\//i.test(r.sourceUrl)
+            ? `<button class="act-btn watch-btn">🎥 Watch video</button>`
+            : `<button class="act-btn addlink-btn">🔗 Add video link</button>`}
           <button class="act-btn cook-btn">👨‍🍳 Cook Mode</button>
           <button class="act-btn grocery-btn">🛒 Add to list</button>
           <button class="act-btn sendto-btn">👥 Send to…</button>
@@ -1449,6 +1623,30 @@ function render(){
         </div>
       </div>
     `;
+    const watchBtn = card.querySelector('.watch-btn');
+    if(watchBtn){
+      watchBtn.onclick = (e)=>{
+        e.stopPropagation();
+        window.open(r.sourceUrl, '_blank', 'noopener,noreferrer');
+      };
+    }
+    const addLinkBtn = card.querySelector('.addlink-btn');
+    if(addLinkBtn){
+      addLinkBtn.onclick = async (e)=>{
+        e.stopPropagation();
+        const url = window.prompt('Paste the video link for this recipe:');
+        if(!url || !url.trim()) return;
+        const trimmed = url.trim();
+        if(!/^https?:\/\//i.test(trimmed)){
+          showToast('⚠️ That doesn\'t look like a valid link');
+          return;
+        }
+        r.sourceUrl = trimmed;
+        await db.set(`recipe:${r.id}`, JSON.stringify(r), false);
+        showToast('🔗 Video link saved');
+        await loadRecipes();
+      };
+    }
     card.querySelector('.pdf-btn').onclick = (e)=>{
       e.stopPropagation();
       printRecipe(r);
