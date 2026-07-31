@@ -634,9 +634,17 @@
   <div class="menu-item" id="contactsMenuBtn"><span class="ic">👥</span> My Contacts</div>
   <div class="menu-item" id="importMenuBtn"><span class="ic">📲</span> Import recipes</div>
   <div class="menu-item" id="restoreMenuBtn"><span class="ic">📦</span> Restore my old recipes</div>
-  <div class="menu-item" id="exportMenuBtn"><span class="ic">📤</span> Export all recipes</div>
+  <div class="menu-item" id="trashMenuBtn"><span class="ic">🗑️</span> Recently Deleted <span id="trashBadge" style="display:none;"></span></div>
+  <div class="menu-item" id="exportMenuBtn"><span class="ic">📤</span> Export all recipes (text)</div>
+  <div class="menu-item" id="backupMenuBtn"><span class="ic">💾</span> Download backup (restorable file)</div>
   <div class="menu-item danger" id="signOutBtn"><span class="ic">🚪</span> Sign out</div>
   <div class="menu-item danger" id="clearAllBtn"><span class="ic">🗑️</span> Clear all recipes</div>
+</div>
+
+<!-- TRASH -->
+<div class="screen" id="screen-trash">
+  <div class="topbar"><div class="greet"><h1>Recently Deleted</h1><p>Recipes stay here 90 days before they're gone for good</p></div></div>
+  <div id="trashList"></div>
 </div>
 
 <!-- IMPORT -->
@@ -1170,7 +1178,7 @@ input.addEventListener('paste', (e)=>{
 function showScreen(name){
   document.querySelectorAll('.navbtn').forEach(b=>{
     const isMatch = b.dataset.screen === name
-      || (['grocery','inbox','contacts','import'].includes(name) && b.dataset.screen==='menu');
+      || (['grocery','inbox','contacts','import','trash'].includes(name) && b.dataset.screen==='menu');
     b.classList.toggle('active', isMatch);
   });
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -1180,6 +1188,7 @@ function showScreen(name){
   if(name === 'profile') updateProfile();
   if(name === 'grocery') renderGrocery();
   if(name === 'inbox') renderInbox();
+  if(name === 'trash') renderTrash();
   if(name === 'contacts') renderContacts();
   if(name === 'menu') refreshInboxBadge();
 }
@@ -1238,6 +1247,29 @@ document.getElementById('exportMenuBtn').onclick = ()=>{
   a.click();
   URL.revokeObjectURL(url);
   showToast(`📤 Exported ${recipes.length} recipe${recipes.length===1?'':'s'}`);
+};
+
+document.getElementById('backupMenuBtn').onclick = ()=>{
+  if(recipes.length === 0){ showToast('Nothing to back up yet'); return; }
+  // Same shape the Import feature already understands — this file can be
+  // dragged back in through "Import recipes" at any point in the future,
+  // on any device, independent of this account or Firestore entirely.
+  const payload = { recipes: recipes.map(r => {
+    const copy = { ...r };
+    delete copy.id;
+    delete copy.importedFrom;
+    delete copy.importBatchId;
+    delete copy.importedAt;
+    return copy;
+  })};
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `recipe-box-full-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`💾 Backed up ${recipes.length} recipes — save this file anywhere safe`);
 };
 
 document.getElementById('signOutBtn').onclick = async ()=>{
@@ -1414,8 +1446,11 @@ async function setShareMode(empty){
 }
 
 document.getElementById('clearAllBtn').onclick = async ()=>{
-  if(!confirm('Clear every recipe? This can\'t be undone.')) return;
-  for(const r of recipes){ await db.delete(`recipe:${r.id}`); }
+  if(recipes.length === 0){ showToast('Nothing to clear'); return; }
+  if(!confirm(`Move all ${recipes.length} recipes to Recently Deleted? They'll be recoverable there for ${TRASH_RETENTION_DAYS} days.`)) return;
+  const count = recipes.length;
+  await Promise.all(recipes.map(r => moveToTrash(r)));
+  showToast(`🗑️ Moved ${count} recipes to Recently Deleted`, 'View', ()=> showScreen('trash'));
   loadRecipes();
 };
 
@@ -1788,6 +1823,102 @@ function renderCleanupCandidates(candidates){
   };
 }
 
+/* ---------- Recently Deleted (Trash) ---------- */
+const TRASH_RETENTION_DAYS = 90;
+function trashCol(){ return fb.collection(fb.firestore, 'users', currentUser.uid, 'trash'); }
+
+async function moveToTrash(r){
+  await userReady;
+  const trashDoc = { ...r, deletedAt: Date.now() };
+  delete trashDoc.id;
+  await fb.setDoc(fb.doc(trashCol(), r.id), trashDoc);
+  await db.delete(`recipe:${r.id}`);
+}
+
+async function restoreFromTrash(id){
+  await userReady;
+  const snap = await fb.getDoc(fb.doc(trashCol(), id));
+  if(!snap.exists()) return false;
+  const data = snap.data();
+  delete data.deletedAt;
+  await fb.setDoc(fb.doc(recipesCol(), id), data);
+  await fb.deleteDoc(fb.doc(trashCol(), id));
+  return true;
+}
+
+async function purgeExpiredTrash(){
+  await userReady;
+  const cutoff = Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  try{
+    const snaps = await fb.getDocs(trashCol());
+    const expired = [];
+    snaps.forEach(s => { if((s.data().deletedAt||0) < cutoff) expired.push(s.id); });
+    await Promise.all(expired.map(id => fb.deleteDoc(fb.doc(trashCol(), id))));
+    return expired.length;
+  }catch(e){ console.error('Trash purge failed:', e); return 0; }
+}
+
+async function refreshTrashBadge(){
+  await userReady;
+  try{
+    await purgeExpiredTrash();
+    const snaps = await fb.getDocs(trashCol());
+    const badge = document.getElementById('trashBadge');
+    if(snaps.size > 0){ badge.style.display = 'inline'; badge.textContent = ' (' + snaps.size + ')'; }
+    else { badge.style.display = 'none'; }
+  }catch(e){}
+}
+
+async function renderTrash(){
+  const el = document.getElementById('trashList');
+  el.innerHTML = '<div class="status">Loading…</div>';
+  await purgeExpiredTrash();
+  await userReady;
+  const snaps = await fb.getDocs(trashCol());
+  const items = [];
+  snaps.forEach(s => items.push({ id: s.id, ...s.data() }));
+  items.sort((a,b)=> (b.deletedAt||0) - (a.deletedAt||0));
+  if(items.length === 0){
+    el.innerHTML = `<div class="empty"><span class="big">🗑️</span>Nothing here right now.</div>`;
+    refreshTrashBadge();
+    return;
+  }
+  el.innerHTML = items.map(it=>{
+    const msLeft = (it.deletedAt||0) + TRASH_RETENTION_DAYS*24*60*60*1000 - Date.now();
+    const daysLeft = Math.max(0, Math.ceil(msLeft / (24*60*60*1000)));
+    return `
+      <div class="review-item" data-id="${it.id}">
+        <div class="rt">${escapeHtml(it.title||'Untitled')}</div>
+        <div class="rd">${daysLeft} day${daysLeft===1?'':'s'} left before it's permanently deleted</div>
+        <div class="ractions">
+          <button class="keep-btn trash-restore-btn">Restore</button>
+          <button class="skip-btn trash-forget-btn">Delete forever</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  el.querySelectorAll('.trash-restore-btn').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const id = btn.closest('.review-item').dataset.id;
+      await restoreFromTrash(id);
+      showToast('✅ Restored');
+      await loadRecipes();
+      renderTrash();
+    };
+  });
+  el.querySelectorAll('.trash-forget-btn').forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm('Permanently delete this recipe? This really can\'t be undone.')) return;
+      const id = btn.closest('.review-item').dataset.id;
+      await fb.deleteDoc(fb.doc(trashCol(), id));
+      renderTrash();
+    };
+  });
+  refreshTrashBadge();
+}
+
+document.getElementById('trashMenuBtn').onclick = ()=> showScreen('trash');
+
 async function loadRecipes(){
   try{
     const list = await db.list('recipe:');
@@ -1978,7 +2109,11 @@ function render(){
     });
     card.querySelector('.del').onclick = async (e)=>{
       e.stopPropagation();
-      await db.delete(`recipe:${r.id}`);
+      await moveToTrash(r);
+      showToast(`🗑️ "${r.title||'Recipe'}" removed`, 'Undo', async ()=>{
+        await restoreFromTrash(r.id);
+        await loadRecipes();
+      });
       loadRecipes();
     };
     grid.appendChild(card);
@@ -2565,6 +2700,7 @@ document.getElementById('authForgotLink').onclick = async ()=>{
 async function initAppAfterSignIn(){
   await loadRecipes();
   refreshInboxBadge();
+  refreshTrashBadge();
 }
 
 (function boot(){
