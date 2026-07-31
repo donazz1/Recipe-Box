@@ -292,31 +292,51 @@
 
   .pdf-doc{
     max-width:680px; margin:0 auto; color:#1a1a1a;
-    font-family:'Nunito',sans-serif; background:#fff; padding:24px;
+    font-family:'Nunito',sans-serif; background:#fff; padding:36px 32px;
   }
-  .pdf-doc img{ width:100%; max-height:340px; object-fit:cover; border-radius:16px; margin-bottom:18px; display:block; }
-  .pdf-doc .eyebrow{
-    font-size:11px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase;
-    color:#a8a8a8; margin-bottom:6px;
+  .pdf-doc .masthead{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:'Fraunces',serif; font-weight:700; font-size:12px; letter-spacing:0.16em;
+    text-transform:uppercase; color:#8a8a8a; margin-bottom:10px;
   }
-  .pdf-doc h1{ font-family:'Fraunces',serif; font-size:30px; margin:0 0 10px; color:#1a1a1a; }
-  .pdf-doc .tags{ margin-bottom:14px; }
+  .pdf-doc .rule{ border:none; border-top:1.5px solid #1a1a1a; margin:0 0 22px; }
+  .pdf-doc .rule.thin{ border-top:1px solid #e5e0d5; margin:26px 0 14px; }
+  .pdf-doc img{ width:100%; max-height:340px; object-fit:cover; border-radius:10px; margin-bottom:20px; display:block; }
+  .pdf-doc h1{ font-family:'Fraunces',serif; font-weight:700; font-size:32px; margin:0 0 8px; color:#1a1a1a; line-height:1.15; }
+  .pdf-doc .byline{ font-size:12.5px; font-weight:700; color:#8a8a8a; margin-bottom:12px; }
+  .pdf-doc .tags{ margin-bottom:22px; }
   .pdf-doc .tags span{
-    display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase;
-    letter-spacing:0.03em; padding:4px 12px; border-radius:100px; color:#fff; margin-right:6px;
+    display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase;
+    letter-spacing:0.05em; padding:5px 13px; border-radius:100px; color:#fff; margin-right:6px;
   }
-  .pdf-doc .qual{ font-size:12.5px; font-weight:700; color:#6b6b6b; margin-bottom:18px; }
-  .pdf-doc .macros{
-    display:grid; grid-template-columns:repeat(4,1fr); border:2px solid #eee; border-radius:14px;
-    padding:14px 4px; margin-bottom:22px;
+  .pdf-doc .nutrition{ border:1.5px solid #1a1a1a; border-radius:10px; margin-bottom:10px; overflow:hidden; }
+  .pdf-doc .nutrition-title{
+    font-family:'Fraunces',serif; font-weight:700; font-size:12px; letter-spacing:0.06em;
+    text-transform:uppercase; padding:8px 14px; border-bottom:1.5px solid #1a1a1a; background:#faf8f3;
   }
-  .pdf-doc .macros div{ text-align:center; }
-  .pdf-doc .macros .val{ font-size:18px; font-weight:800; }
-  .pdf-doc .macros .lab{ font-size:10px; font-weight:700; text-transform:uppercase; color:#8a8a8a; letter-spacing:0.03em; }
-  .pdf-doc .cols{ display:grid; grid-template-columns:1fr 1.3fr; gap:32px; }
-  .pdf-doc h2{ font-family:'Fraunces',serif; font-size:15px; margin:0 0 10px; border-bottom:2px solid #1a1a1a; padding-bottom:6px; }
-  .pdf-doc ul, .pdf-doc ol{ margin:0; padding-left:18px; font-size:13.5px; line-height:1.7; }
-  .pdf-doc .footer{ margin-top:30px; padding-top:14px; border-top:1px solid #eee; font-size:10.5px; color:#a8a8a8; text-align:center; }
+  .pdf-doc .nutrition-row{ display:flex; }
+  .pdf-doc .nstat{ flex:1; text-align:center; padding:14px 4px; }
+  .pdf-doc .nstat + .nstat{ border-left:1px solid #e5e0d5; }
+  .pdf-doc .nval{ font-family:'Fraunces',serif; font-size:20px; font-weight:700; }
+  .pdf-doc .nlab{ font-size:9.5px; font-weight:700; text-transform:uppercase; color:#8a8a8a; letter-spacing:0.04em; margin-top:2px; }
+  .pdf-doc .estimated-note{ font-size:11px; font-weight:700; color:#a8a8a8; font-style:italic; margin-bottom:22px; }
+  .pdf-doc .cols{ display:grid; grid-template-columns:1fr 1.35fr; gap:36px; margin-top:22px; }
+  .pdf-doc h2{
+    font-family:'Fraunces',serif; font-weight:700; font-size:13px; letter-spacing:0.04em;
+    text-transform:uppercase; margin:0 0 14px; padding-bottom:8px; border-bottom:1.5px solid #1a1a1a;
+  }
+  .pdf-doc .ing-list{ list-style:none; margin:0; padding:0; font-size:13.5px; line-height:1.5; }
+  .pdf-doc .ing-list li{ position:relative; padding-left:16px; margin-bottom:9px; }
+  .pdf-doc .ing-list li::before{ content:'—'; position:absolute; left:0; top:0; color:#c9a84c; font-weight:800; }
+  .pdf-doc .steps{ list-style:none; margin:0; padding:0; counter-reset:step; font-size:13.5px; line-height:1.6; }
+  .pdf-doc .steps li{ counter-increment:step; position:relative; padding-left:34px; margin-bottom:16px; }
+  .pdf-doc .steps li::before{
+    content:counter(step); position:absolute; left:0; top:0; width:23px; height:23px;
+    border-radius:50%; background:#1a1a1a; color:#fff; font-size:11.5px; font-weight:800;
+    text-align:center; line-height:23px;
+  }
+  .pdf-doc .footer{ margin-top:8px; font-size:10px; color:#a8a8a8; text-align:center; }
+  .pdf-doc .footer .src{ display:block; margin-top:3px; word-break:break-all; }
 
   /* ---------- Photo attach ---------- */
   .photo-row{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
@@ -2094,28 +2114,37 @@ document.getElementById('clearKeyBtn').onclick = ()=>{
 };
 function buildRecipeDocHtml(r){
   const chips = r.categories.map(c=>`<span style="background:${CAT_COLOR[c]};color:${CAT_TEXT_ON[c]}">${c}</span>`).join('');
-  const qual = r.qualifiers.length ? r.qualifiers.join(' · ') : '';
+  const bylineParts = [];
+  if(r.serving) bylineParts.push(escapeHtml(r.serving));
+  if(r.qualifiers && r.qualifiers.length) bylineParts.push(r.qualifiers.map(escapeHtml).join(' · '));
+  const byline = bylineParts.join(' · ');
   const ingredientsHtml = (r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
   const instructionsHtml = (r.instructions||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
   const imgHtml = r.image ? `<img src="${r.image}" alt="">` : '';
+  const sourceLine = r.sourceUrl ? `<span class="src">${escapeHtml(r.sourceUrl)}</span>` : '';
   return `
+    <div class="masthead"><span>Recipe Box</span><span>${r.sharedFromName ? 'From ' + escapeHtml(r.sharedFromName) : ''}</span></div>
+    <hr class="rule">
     ${imgHtml}
-    <div class="eyebrow">Recipe Box${r.serving ? ' · ' + escapeHtml(r.serving) : ''}</div>
     <h1>${escapeHtml(r.title||"Untitled")}</h1>
+    ${byline ? `<div class="byline">${byline}</div>` : ''}
     <div class="tags">${chips}</div>
-    ${qual ? `<div class="qual">${escapeHtml(qual)}</div>` : ''}
-    <div class="macros">
-      <div><div class="val">${r.calories ?? '–'}</div><div class="lab">Cal</div></div>
-      <div><div class="val">${r.protein ?? '–'}${r.protein!=null?'g':''}</div><div class="lab">Protein</div></div>
-      <div><div class="val">${r.fat ?? '–'}${r.fat!=null?'g':''}</div><div class="lab">Fat</div></div>
-      <div><div class="val">${r.carbs ?? '–'}${r.carbs!=null?'g':''}</div><div class="lab">Carbs</div></div>
+    <div class="nutrition">
+      <div class="nutrition-title">Nutrition</div>
+      <div class="nutrition-row">
+        <div class="nstat"><div class="nval">${r.calories ?? '–'}</div><div class="nlab">Calories</div></div>
+        <div class="nstat"><div class="nval">${r.protein ?? '–'}${r.protein!=null?'g':''}</div><div class="nlab">Protein</div></div>
+        <div class="nstat"><div class="nval">${r.fat ?? '–'}${r.fat!=null?'g':''}</div><div class="nlab">Fat</div></div>
+        <div class="nstat"><div class="nval">${r.carbs ?? '–'}${r.carbs!=null?'g':''}</div><div class="nlab">Carbs</div></div>
+      </div>
     </div>
-    ${r.macrosEstimated ? `<div class="qual">~ estimated from ingredients, not lab-measured</div>` : ''}
+    ${r.macrosEstimated ? `<div class="estimated-note">Estimated from ingredients, not lab-measured</div>` : ''}
     <div class="cols">
-      <div>${ingredientsHtml ? `<h2>Ingredients</h2><ul>${ingredientsHtml}</ul>` : ''}</div>
-      <div>${instructionsHtml ? `<h2>Instructions</h2><ol>${instructionsHtml}</ol>` : ''}</div>
+      <div>${ingredientsHtml ? `<h2>Ingredients</h2><ul class="ing-list">${ingredientsHtml}</ul>` : ''}</div>
+      <div>${instructionsHtml ? `<h2>Instructions</h2><ol class="steps">${instructionsHtml}</ol>` : ''}</div>
     </div>
-    <div class="footer">Filed with Recipe Box</div>
+    <hr class="rule thin">
+    <div class="footer">Filed with Recipe Box${sourceLine ? ' · Originally from:' : ''}${sourceLine}</div>
   `;
 }
 
@@ -2188,7 +2217,8 @@ async function shareRecipePDF(r, btnEl){
   try{
     const capture = document.getElementById('pdfCapture');
     capture.innerHTML = `<div class="pdf-doc">${buildRecipeDocHtml(r)}</div>`;
-    await new Promise(res => setTimeout(res, 120));
+    try{ await document.fonts.ready; }catch(e){}
+    await new Promise(res => setTimeout(res, 150));
     const canvas = await html2canvas(capture, { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: 700 });
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
     const { jsPDF } = window.jspdf;
