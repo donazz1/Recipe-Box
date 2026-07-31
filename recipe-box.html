@@ -1785,6 +1785,9 @@ async function loadRecipes(){
 
 function renderTabs(){
   const cats = ["All", "❤️ Favorites", ...CATS];
+  const contributors = Array.from(new Set(
+    recipes.filter(r => r.sharedFromName).map(r => r.sharedFromName)
+  )).sort();
   tabsEl.innerHTML = '';
   cats.forEach(c=>{
     const btn = document.createElement('button');
@@ -1795,6 +1798,25 @@ function renderTabs(){
     btn.onclick = ()=>{ activeFilter = c; render(); };
     tabsEl.appendChild(btn);
   });
+  if(contributors.length){
+    // Divider-ish visual break, then one pill per person whose recipes are mixed into this library.
+    const mineVal = 'person:__mine__';
+    const mineBtn = document.createElement('button');
+    mineBtn.className = 'tab' + (activeFilter===mineVal ? ' active' : '');
+    mineBtn.style.background = activeFilter===mineVal ? 'var(--sky)' : '';
+    mineBtn.textContent = '👤 Mine';
+    mineBtn.onclick = ()=>{ activeFilter = mineVal; render(); };
+    tabsEl.appendChild(mineBtn);
+    contributors.forEach(name=>{
+      const val = 'person:' + name;
+      const btn = document.createElement('button');
+      btn.className = 'tab' + (activeFilter===val ? ' active' : '');
+      btn.style.background = activeFilter===val ? 'var(--grape)' : '';
+      btn.textContent = '👤 ' + name;
+      btn.onclick = ()=>{ activeFilter = val; render(); };
+      tabsEl.appendChild(btn);
+    });
+  }
 }
 
 function render(){
@@ -1802,12 +1824,20 @@ function render(){
   let filtered;
   if(activeFilter === "All") filtered = recipes;
   else if(activeFilter === "❤️ Favorites") filtered = recipes.filter(r => r.favorite);
+  else if(activeFilter === "person:__mine__") filtered = recipes.filter(r => !r.sharedFromName);
+  else if(activeFilter.startsWith && activeFilter.startsWith('person:')) {
+    const who = activeFilter.slice('person:'.length);
+    filtered = recipes.filter(r => r.sharedFromName === who);
+  }
   else filtered = recipes.filter(r => r.categories.includes(activeFilter));
   grid.innerHTML = '';
   if(filtered.length === 0){
+    const label = activeFilter.startsWith && activeFilter.startsWith('person:')
+      ? (activeFilter === 'person:__mine__' ? 'your own recipes' : activeFilter.slice('person:'.length))
+      : activeFilter;
     const emptyMsg = recipes.length===0
       ? "Your box is empty — tap ＋ to file your first recipe."
-      : (activeFilter === "❤️ Favorites" ? "No favorites yet — tap the heart on any recipe." : "Nothing under <b>"+activeFilter+"</b> yet.");
+      : (activeFilter === "❤️ Favorites" ? "No favorites yet — tap the heart on any recipe." : "Nothing under <b>"+label+"</b> yet.");
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span class="big">🍽️</span>${emptyMsg}</div>`;
     return;
   }
