@@ -2230,15 +2230,25 @@ async function shareRecipePDF(r, btnEl){
     const canvas = await html2canvas(capture, { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: 700 });
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-    // One continuous page, sized exactly to the content — not fixed Letter
-    // pages. This is what actually fixes the awkward mid-list cuts and huge
-    // blank trailing space: there's no pagination happening at all, so
-    // there's nothing to cut awkwardly or leave empty.
+    // Rule: every recipe fits on one standard 8.5x11 page. If the content is
+    // taller than a page at full width, shrink it down (both dimensions,
+    // proportionally — fonts, image, spacing all scale together since it's
+    // one flat image) until it fits, rather than paginating or resizing the page.
     const { jsPDF } = window.jspdf;
-    const pageWidthMM = 215.9; // Letter width, so it still reads naturally at normal size
-    const imgHeightMM = (canvas.height * pageWidthMM) / canvas.width;
-    const pdf = new jsPDF({ unit: 'mm', format: [pageWidthMM, imgHeightMM] });
-    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMM, imgHeightMM);
+    const pdf = new jsPDF('p', 'mm', 'letter');
+    const pageWidth = pdf.internal.pageSize.getWidth();   // 215.9mm
+    const pageHeight = pdf.internal.pageSize.getHeight(); // 279.4mm
+    const naturalHeight = (canvas.height * pageWidth) / canvas.width;
+
+    let drawWidth = pageWidth;
+    let drawHeight = naturalHeight;
+    if(naturalHeight > pageHeight){
+      const scale = pageHeight / naturalHeight;
+      drawWidth = pageWidth * scale;
+      drawHeight = pageHeight;
+    }
+    const xOffset = (pageWidth - drawWidth) / 2; // center if shrunk narrower than the page
+    pdf.addImage(imgData, 'JPEG', xOffset, 0, drawWidth, drawHeight);
 
     const blob = pdf.output('blob');
     const fileName = (r.title||'recipe').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') + '.pdf';
