@@ -372,6 +372,9 @@
     box-shadow:0 2px 8px rgba(42,33,64,0.05);
   }
   .import-summary-card h3{ font-family:'Fraunces',serif; font-size:16px; margin:0 0 10px; }
+  .help-section p{ font-size:13.5px; line-height:1.65; color:var(--ink); margin:0 0 10px; }
+  .help-section p:last-child{ margin-bottom:0; }
+  .help-section p b{ color:var(--ink); }
   .import-stat-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
   .import-stat{
     flex:1; min-width:80px; background:#FAF6EA; border-radius:14px; padding:10px 8px; text-align:center;
@@ -629,6 +632,7 @@
     <div class="status" id="keyStatus" style="text-align:left; margin-top:8px;"></div>
   </div>
 
+  <div class="menu-item" id="helpMenuBtn"><span class="ic">🎓</span> How to use Recipe Box</div>
   <div class="menu-item" id="groceryMenuBtn"><span class="ic">🛒</span> Grocery List</div>
   <div class="menu-item" id="inboxMenuBtn"><span class="ic">📥</span> Shared with you <span id="inboxBadge" style="display:none;"></span></div>
   <div class="menu-item" id="contactsMenuBtn"><span class="ic">👥</span> My Contacts</div>
@@ -639,6 +643,92 @@
   <div class="menu-item" id="backupMenuBtn"><span class="ic">💾</span> Download backup (restorable file)</div>
   <div class="menu-item danger" id="signOutBtn"><span class="ic">🚪</span> Sign out</div>
   <div class="menu-item danger" id="clearAllBtn"><span class="ic">🗑️</span> Clear all recipes</div>
+</div>
+
+<!-- HELP -->
+<div class="screen" id="screen-help">
+  <div class="topbar"><div class="greet"><h1>How to use Recipe Box</h1><p>A walk-through of everything, tab by tab</p></div></div>
+  <div class="invite-card" style="text-align:left; margin-bottom:16px;">
+    <button class="pill-btn copy" id="helpReadBtn" style="width:100%;">🔊 Read this aloud</button>
+  </div>
+  <div id="helpContent">
+
+    <div class="import-summary-card help-section">
+      <h3>Overview</h3>
+      <p>Recipe Box is your own private recipe collection, with a few extras built in for actually cooking and sharing. You paste, link, or photograph a recipe and it gets turned into a tidy card — title, macros, ingredients, and steps. From there you can cook hands-free, build a grocery list, share recipes with family, and everything stays backed up and recoverable if you ever delete something by accident. Here's what each part of the app does.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>🏠 Home</h3>
+      <p>This is your recipe library. Every card shows the title, category tags, macros, and a heart to mark favorites. Tap a card to expand it and see the full ingredient list and instructions, along with buttons for Cook Mode, the grocery list, sharing, and more.</p>
+      <p>At the top, the filter pills let you narrow the view: <b>All</b>, <b>Favorites</b>, a category like <b>Dinner</b> or <b>Dessert</b>, and if your library has recipes from more than one person, you'll also see pills for <b>Mine</b> and each contributor's name.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>➕ Add a recipe</h3>
+      <p>Tap the orange plus button on the bottom bar. You can paste raw recipe text, paste a link to a recipe page, or upload a PDF — the app reads it and files it into the right categories automatically. You can also attach a photo, either by choosing one or dragging it in.</p>
+      <p>If a recipe doesn't list its macros, the app estimates them from the ingredients instead of leaving them blank — you'll see a small "estimated" note whenever that's happened.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>📇 A recipe card, expanded</h3>
+      <p>Tap any card to open it up. Along the bottom you'll find:</p>
+      <p><b>Cook Mode</b> — a big-text, step-by-step view for actually cooking, with your phone screen staying awake.<br>
+      <b>Add to list</b> — sends that recipe's ingredients straight to your grocery list.<br>
+      <b>Send to…</b> — share this one recipe with someone in your contacts. It only joins their library once they accept it.<br>
+      <b>Add/Change photo</b> — attach or replace the recipe's picture.<br>
+      <b>Share PDF</b> — builds a proper one-page PDF and hands it to your phone's share sheet (Mail, Messages, AirDrop).<br>
+      <b>Print</b> — opens your browser's normal print dialog.<br>
+      <b>Watch video / Add video link</b> — if the recipe came from a video, this opens it. If it didn't, you can paste a link in yourself.<br>
+      <b>Remove recipe</b> — moves it to Recently Deleted, not gone for good. You'll get an instant Undo too.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>👨‍🍳 Cook Mode</h3>
+      <p>One step at a time, in large text, so you're not squinting or scrolling with messy hands. Tap <b>🔊 Read aloud</b> and it'll read each step out loud, then automatically keep reading as you move to the next one — tap it again anytime to turn it off. <b>🔁 Replay</b> repeats the current step, and the speed buttons (0.75x–1.5x) slow it down or speed it up.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>🛒 Grocery List</h3>
+      <p>Found under Menu. Every ingredient you've sent here shows as a tappable item — tap to check it off as you shop. You can share the whole list as text, clear just the checked items, or clear everything.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>👤 Profile</h3>
+      <p>Your name and email, plus a stat summary of your library. Tap the pencil next to your name to fix a typo or change it anytime. Below that, the <b>Full library / Start empty</b> toggle sets the default for future invites — but you can always override it for a specific invite when you send one.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>🎉 Invite</h3>
+      <p>Enter someone's email, choose whether they get your full library or start empty, and it builds a personal invite link. Share it however you like. When they open it, they set their own name and password and get their own private library — connected to yours, but never mixing your recipes into theirs without your say-so.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>📥 Shared with you</h3>
+      <p>When someone sends you an individual recipe through "Send to…", it lands here first — not directly in your library. You choose Accept or Skip for each one.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>👥 My Contacts</h3>
+      <p>Everyone who's accepted an invite from you shows up here — this is who you can pick from when you tap "Send to…" on a recipe.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>📲 Import recipes</h3>
+      <p>For bringing in a batch of recipes from an export file (like from a video-to-recipe tool) — one recipe or a big batch at once. It automatically skips exact duplicates, and flags anything that looks similar-but-different so you can decide instead of it guessing. There's also a <b>Find recipes to remove</b> tool here if you ever need to undo a batch import, and a running history of every import you've done.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>🗑️ Recently Deleted</h3>
+      <p>Anything you remove — one recipe or everything at once — lands here first, not gone immediately. Each one shows exactly how many days are left (90 total) before it's permanently deleted. Tap <b>Restore</b> to bring it back, or <b>Delete forever</b> if you're sure.</p>
+    </div>
+
+    <div class="import-summary-card help-section">
+      <h3>📤💾 Backups</h3>
+      <p>Two different exports, for two different jobs. <b>Export all recipes (text)</b> gives you a readable file you can look through or print. <b>Download backup (restorable file)</b> is the one that actually matters for safety — it saves a file you can keep anywhere (your computer, a cloud drive, wherever) and bring back in through Import recipes at any point in the future, completely independent of this account.</p>
+    </div>
+
+  </div>
 </div>
 
 <!-- TRASH -->
@@ -1176,9 +1266,10 @@ input.addEventListener('paste', (e)=>{
 
 /* ---------- Navigation ---------- */
 function showScreen(name){
+  if(name !== 'help' && typeof stopHelpReading === 'function') stopHelpReading();
   document.querySelectorAll('.navbtn').forEach(b=>{
     const isMatch = b.dataset.screen === name
-      || (['grocery','inbox','contacts','import','trash'].includes(name) && b.dataset.screen==='menu');
+      || (['grocery','inbox','contacts','import','trash','help'].includes(name) && b.dataset.screen==='menu');
     b.classList.toggle('active', isMatch);
   });
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -1918,6 +2009,40 @@ async function renderTrash(){
 }
 
 document.getElementById('trashMenuBtn').onclick = ()=> showScreen('trash');
+
+/* ---------- Help / Learn ---------- */
+document.getElementById('helpMenuBtn').onclick = ()=>{
+  stopHelpReading();
+  showScreen('help');
+};
+let helpReading = false;
+function updateHelpReadBtn(){
+  const btn = document.getElementById('helpReadBtn');
+  btn.textContent = helpReading ? '⏸️ Stop reading' : '🔊 Read this aloud';
+}
+function stopHelpReading(){
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  helpReading = false;
+  updateHelpReadBtn();
+}
+document.getElementById('helpReadBtn').onclick = ()=>{
+  if(!('speechSynthesis' in window)){ showToast('Reading aloud isn\'t supported in this browser'); return; }
+  if(helpReading){ stopHelpReading(); return; }
+  window.speechSynthesis.cancel();
+  const sections = document.querySelectorAll('#helpContent .help-section');
+  const utterances = Array.from(sections).map(sec => {
+    const u = new SpeechSynthesisUtterance(sec.innerText);
+    u.rate = 1;
+    return u;
+  });
+  const last = utterances[utterances.length - 1];
+  if(last){
+    last.onend = ()=>{ helpReading = false; updateHelpReadBtn(); };
+  }
+  utterances.forEach(u => window.speechSynthesis.speak(u));
+  helpReading = true;
+  updateHelpReadBtn();
+};
 
 async function loadRecipes(){
   try{
