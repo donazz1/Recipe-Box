@@ -584,7 +584,7 @@
         <div class="sun-badge"><span>💪</span></div>
       </div>
     </div>
-    <div class="tabs" id="tabs" data-tour="home-tabs"></div>
+    <div class="tabs" id="tabs"></div>
   </div>
   <div class="grid" id="grid"></div>
 </div>
@@ -640,7 +640,7 @@
 <!-- INVITE -->
 <div class="screen" id="screen-invite">
   <div class="topbar"><div class="greet"><h1>Invite</h1></div></div>
-  <div class="invite-card" data-tour="invite-card">
+  <div class="invite-card">
     <div class="big">🎉</div>
     <h2>Invite someone</h2>
     <p>Enter their email — we'll build a personal link that signs them in and sets up their own profile.</p>
@@ -678,8 +678,8 @@
   </div>
 
   <div class="menu-item" id="helpMenuBtn"><span class="ic">🎓</span> How to use Recipe Box</div>
-  <div class="menu-item" id="tourMenuBtn"><span class="ic">🎬</span> Take the guided tour</div>
-  <div class="menu-item" id="groceryMenuBtn" data-tour="grocery-menu-btn"><span class="ic">🛒</span> Grocery List</div>
+  <div class="menu-item" id="sousChefMenuBtn"><span class="ic">👨‍🍳</span> Sous Chef</div>
+  <div class="menu-item" id="groceryMenuBtn"><span class="ic">🛒</span> Grocery List</div>
   <div class="menu-item" id="inboxMenuBtn"><span class="ic">📥</span> Shared with you <span id="inboxBadge" style="display:none;"></span></div>
   <div class="menu-item" id="contactsMenuBtn"><span class="ic">👥</span> My Contacts</div>
   <div class="menu-item" id="importMenuBtn"><span class="ic">📲</span> Import recipes</div>
@@ -777,6 +777,15 @@
   </div>
 </div>
 
+<!-- SOUS CHEF -->
+<div class="screen" id="screen-sous-chef">
+  <div class="topbar"><div class="greet"><h1>👨‍🍳 Sous Chef</h1><p>Narrated, hands-on walkthroughs — watch each feature work, not just hear about it</p></div></div>
+  <div class="invite-card" style="text-align:left; margin-bottom:16px;">
+    <button class="pill-btn copy" id="sousChefPlayAllBtn" style="width:100%;">▶ Play full tour</button>
+  </div>
+  <div id="sousChefGrid" style="display:flex; flex-direction:column; gap:12px;"></div>
+</div>
+
 <!-- TRASH -->
 <div class="screen" id="screen-trash">
   <div class="topbar"><div class="greet"><h1>Recently Deleted</h1><p>Recipes stay here 90 days before they're gone for good</p></div></div>
@@ -862,7 +871,7 @@
 <div class="navbar">
   <button class="navbtn active" data-screen="home"><span class="ic">🏠</span>Home</button>
   <button class="navbtn" data-screen="profile"><span class="ic">👤</span>Profile</button>
-  <button class="navbtn addbtn" data-screen="add" data-tour="add-btn"><span class="ic">＋</span></button>
+  <button class="navbtn addbtn" data-screen="add"><span class="ic">＋</span></button>
   <button class="navbtn" data-screen="invite"><span class="ic">🎉</span>Invite</button>
   <button class="navbtn" data-screen="menu"><span class="ic">☰</span>Menu</button>
 </div>
@@ -1316,7 +1325,7 @@ function showScreen(name){
   if(name !== 'help' && typeof stopHelpReading === 'function') stopHelpReading();
   document.querySelectorAll('.navbtn').forEach(b=>{
     const isMatch = b.dataset.screen === name
-      || (['grocery','inbox','contacts','import','trash','help'].includes(name) && b.dataset.screen==='menu');
+      || (['grocery','inbox','contacts','import','trash','help','sous-chef'].includes(name) && b.dataset.screen==='menu');
     b.classList.toggle('active', isMatch);
   });
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -1328,6 +1337,7 @@ function showScreen(name){
   if(name === 'inbox') renderInbox();
   if(name === 'trash') renderTrash();
   if(name === 'contacts') renderContacts();
+  if(name === 'sous-chef' && typeof renderSousChefGrid === 'function') renderSousChefGrid();
   if(name === 'menu') refreshInboxBadge();
 }
 document.querySelectorAll('.navbtn').forEach(btn=>{
@@ -2899,115 +2909,203 @@ async function initAppAfterSignIn(){
   refreshTrashBadge();
 }
 
-/* ---------- Guided tour ---------- */
+/* ---------- Sous Chef (narrated, hands-on walkthroughs) ---------- */
 // Pre-recorded narration (Voicebox, generated once offline — see /audio/tour).
 // Playback never calls Voicebox or any local server; these are static files.
-const TOUR_STEPS = [
-  { id: "home", screen: "home", highlight: "home-tabs", audio: "audio/tour/home.wav",
-    caption: "Your recipe library, filtered by category, favorites, or who added it." },
-  { id: "add-recipe", screen: "home", highlight: "add-btn", audio: "audio/tour/add-recipe.wav",
-    caption: "Paste text, a link, or a PDF — it's sorted and filed automatically." },
-  { id: "cook-mode", screen: "home", highlight: null, audio: "audio/tour/cook-mode.wav",
-    caption: "Open any recipe and tap Cook Mode for hands-free, step-by-step cooking." },
-  { id: "grocery-list", screen: "menu", highlight: "grocery-menu-btn", audio: "audio/tour/grocery-list.wav",
-    caption: "Everything you add to a list lands here — tap to check off at the store." },
-  { id: "invite-sharing", screen: "invite", highlight: "invite-card", audio: "audio/tour/invite-sharing.wav",
-    caption: "Invite family, choose full or empty library, and share individual recipes." },
+// Each module drives the real UI — real clicks on the real buttons/tabs/cards
+// — timed to the narration, instead of just pointing at something on screen.
+
+function flashHighlight(el){
+  if(!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('tour-highlight-active');
+  setTimeout(() => el.classList.remove('tour-highlight-active'), 2200);
+}
+function clickNav(screen){
+  document.querySelector(`.navbtn[data-screen="${screen}"]`)?.click();
+}
+function clickTabByLabel(label){
+  const btn = Array.from(document.querySelectorAll('#tabs .tab')).find(b => b.textContent.trim() === label);
+  if(btn) flashHighlight(btn);
+  btn?.click();
+}
+// Shows the read-aloud toggle in its "on" visual state briefly without
+// firing real speechSynthesis, so it doesn't talk over the tour narration.
+function fakeToggleCookSpeak(durationMs){
+  const btn = document.getElementById('cookSpeakBtn');
+  if(!btn) return;
+  flashHighlight(btn);
+  btn.classList.add('playing');
+  btn.textContent = '⏸️ Stop reading';
+  setTimeout(() => { btn.classList.remove('playing'); btn.textContent = '🔊 Read aloud'; }, durationMs);
+}
+
+const SOUS_CHEF_MODULES = [
+  {
+    id: "home", title: "Home & Library", icon: "🏠",
+    description: "See the filter tabs in action — categories, favorites, and who each recipe belongs to.",
+    audio: "audio/tour/home.wav",
+    enter(){ clickNav('home'); },
+    beats: [
+      { at: 12500, run: () => clickTabByLabel('Dinner') },
+      { at: 15500, run: () => clickTabByLabel('❤️ Favorites') },
+      { at: 18000, run: () => clickTabByLabel('All') },
+    ],
+  },
+  {
+    id: "add-recipe", title: "Add a Recipe", icon: "➕",
+    description: "Paste text, a link, or a PDF — watch the plus button take you there.",
+    audio: "audio/tour/add-recipe.wav",
+    enter(){ clickNav('home'); },
+    beats: [
+      { at: 3000, run: () => flashHighlight(document.querySelector('.navbtn.addbtn')) },
+      { at: 4500, run: () => document.querySelector('.navbtn.addbtn')?.click() },
+    ],
+  },
+  {
+    id: "cook-mode", title: "Cook Mode", icon: "👨‍🍳",
+    description: "Open a real recipe and step through hands-free cooking, live.",
+    audio: "audio/tour/cook-mode.wav",
+    enter(){ clickNav('home'); },
+    beats: [
+      { at: 1200, run: () => {
+        const card = document.querySelector('#grid .rcard');
+        if(!card) return;
+        flashHighlight(card);
+        card.click();
+      }},
+      { at: 5000, run: () => {
+        const btn = document.querySelector('#grid .rcard .cook-btn');
+        if(btn) flashHighlight(btn);
+        btn?.click();
+      }},
+      { at: 10000, run: () => fakeToggleCookSpeak(3000) },
+      { at: 15500, run: () => document.getElementById('cookClose')?.click() },
+    ],
+  },
+  {
+    id: "grocery-list", title: "Grocery List", icon: "🛒",
+    description: "Everything you send from a recipe lands here, ready to check off.",
+    audio: "audio/tour/grocery-list.wav",
+    enter(){ clickNav('menu'); },
+    beats: [
+      { at: 2000, run: () => {
+        const btn = document.getElementById('groceryMenuBtn');
+        if(btn) flashHighlight(btn);
+        btn?.click();
+      }},
+    ],
+  },
+  {
+    id: "invite-sharing", title: "Invite & Sharing", icon: "🎉",
+    description: "See the invite screen and how the full-library-vs-empty choice works.",
+    audio: "audio/tour/invite-sharing.wav",
+    enter(){ clickNav('invite'); },
+    beats: [
+      { at: 10000, run: () => document.getElementById('inviteEmptyBtn')?.click() },
+      { at: 13000, run: () => document.getElementById('inviteFullBtn')?.click() },
+    ],
+  },
 ];
-const TOUR_STEP_GAP_MS = 700;
 
-let tourAudioEl = null;
-let tourStarted = false;
-let tourPlaying = false;
-let tourIndex = 0;
-let tourGapTimer = null;
+let scAudioEl = null;
+let scPlaying = false;
+let scStarted = false;
+let scIndex = 0;
+let scChainMode = false;
+let scBeatTimers = [];
+let scEndTimer = null;
 
-function tourEl(id){ return document.getElementById(id); }
-
-function clearTourHighlight(){
-  document.querySelectorAll('.tour-highlight-active').forEach(el => el.classList.remove('tour-highlight-active'));
+function clearBeatTimers(){
+  scBeatTimers.forEach(t => clearTimeout(t));
+  scBeatTimers = [];
+  clearTimeout(scEndTimer);
+  scEndTimer = null;
 }
 
-function applyTourHighlight(highlightKey){
-  clearTourHighlight();
-  if(!highlightKey) return;
-  const target = document.querySelector(`[data-tour="${highlightKey}"]`);
-  if(target){
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    target.classList.add('tour-highlight-active');
-  }
-}
-
-function updateTourBarUI(){
-  const bar = tourEl('tourBar');
-  const caption = tourEl('tourCaption');
-  if(!tourStarted){
+function updateSousChefBarUI(){
+  const bar = document.getElementById('tourBar');
+  const caption = document.getElementById('tourCaption');
+  if(!scStarted){
     bar.classList.add('hidden');
     caption.classList.add('hidden');
     return;
   }
   bar.classList.remove('hidden');
   caption.classList.remove('hidden');
-  const step = TOUR_STEPS[tourIndex];
-  caption.textContent = step.caption;
-  tourEl('tourPlayPauseBtn').textContent = tourPlaying ? '⏸' : '▶';
-  tourEl('tourProgress').textContent = `${tourIndex + 1} / ${TOUR_STEPS.length}`;
+  const mod = SOUS_CHEF_MODULES[scIndex];
+  caption.textContent = mod.title;
+  document.getElementById('tourPlayPauseBtn').textContent = scPlaying ? '⏸' : '▶';
+  document.getElementById('tourProgress').textContent = scChainMode ? `${scIndex + 1} / ${SOUS_CHEF_MODULES.length}` : mod.title;
 }
 
-function stopTour(){
-  clearTimeout(tourGapTimer);
-  if(tourAudioEl){ tourAudioEl.pause(); tourAudioEl.onended = null; }
-  tourStarted = false;
-  tourPlaying = false;
-  tourIndex = 0;
-  clearTourHighlight();
-  updateTourBarUI();
+function stopSousChef(){
+  clearBeatTimers();
+  if(scAudioEl){ scAudioEl.pause(); scAudioEl.onended = null; }
+  document.querySelectorAll('.tour-highlight-active').forEach(el => el.classList.remove('tour-highlight-active'));
+  if(document.getElementById('cookOverlay')?.classList.contains('open')) closeCookMode();
+  scStarted = false;
+  scPlaying = false;
+  updateSousChefBarUI();
 }
 
-function beginTourStepPlayback(i){
-  const step = TOUR_STEPS[i];
-  showScreen(step.screen);
+function returnToSousChef(){
+  stopSousChef();
+  showScreen('sous-chef');
+}
+
+function playModule(i, chain){
+  if(i >= SOUS_CHEF_MODULES.length){ returnToSousChef(); return; }
+  clearBeatTimers();
+  const mod = SOUS_CHEF_MODULES[i];
+  scIndex = i;
+  scChainMode = chain;
+  scStarted = true;
+  scPlaying = true;
+  updateSousChefBarUI();
+
+  mod.enter();
   setTimeout(() => {
-    applyTourHighlight(step.highlight);
-    tourAudioEl.src = step.audio;
-    tourAudioEl.currentTime = 0;
-    tourAudioEl.onended = () => playTourStep(i + 1);
-    tourAudioEl.play();
-    tourPlaying = true;
-    updateTourBarUI();
-  }, TOUR_STEP_GAP_MS);
+    scAudioEl.src = mod.audio;
+    scAudioEl.currentTime = 0;
+    scAudioEl.play();
+    mod.beats.forEach(b => { scBeatTimers.push(setTimeout(b.run, b.at)); });
+    scAudioEl.onended = () => {
+      if(chain && i + 1 < SOUS_CHEF_MODULES.length){
+        scEndTimer = setTimeout(() => playModule(i + 1, true), 900);
+      } else {
+        scEndTimer = setTimeout(returnToSousChef, 1200);
+      }
+    };
+  }, 500);
 }
 
-function playTourStep(i){
-  if(i >= TOUR_STEPS.length){ stopTour(); return; }
-  tourIndex = i;
-  tourStarted = true;
-  updateTourBarUI();
-  clearTimeout(tourGapTimer);
-  tourGapTimer = setTimeout(() => beginTourStepPlayback(i), 0);
+function toggleSousChefPlayPause(){
+  if(!scStarted) return;
+  if(scPlaying){ scAudioEl.pause(); scPlaying = false; }
+  else { scAudioEl.play(); scPlaying = true; }
+  updateSousChefBarUI();
 }
 
-function startTour(){
-  showScreen(TOUR_STEPS[0].screen);
-  playTourStep(0);
+function renderSousChefGrid(){
+  const grid = document.getElementById('sousChefGrid');
+  grid.innerHTML = SOUS_CHEF_MODULES.map((mod, i) => `
+    <div class="import-summary-card help-section">
+      <h3>${mod.icon} ${escapeHtml(mod.title)}</h3>
+      <p>${escapeHtml(mod.description)}</p>
+      <button class="pill-btn copy sc-play-btn" data-idx="${i}" style="width:100%; margin-top:8px;">▶ Play walkthrough</button>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.sc-play-btn').forEach(btn => {
+    btn.onclick = () => playModule(parseInt(btn.dataset.idx, 10), false);
+  });
 }
 
-function toggleTourPlayPause(){
-  if(!tourStarted) return;
-  if(tourPlaying){
-    tourAudioEl.pause();
-    tourPlaying = false;
-  } else {
-    tourAudioEl.play();
-    tourPlaying = true;
-  }
-  updateTourBarUI();
-}
-
-document.getElementById('tourMenuBtn').onclick = () => { showScreen('home'); startTour(); };
-document.getElementById('tourPlayPauseBtn').onclick = toggleTourPlayPause;
-document.getElementById('tourCloseBtn').onclick = stopTour;
-tourAudioEl = document.getElementById('tourAudio');
+document.getElementById('sousChefMenuBtn').onclick = () => showScreen('sous-chef');
+document.getElementById('sousChefPlayAllBtn').onclick = () => playModule(0, true);
+document.getElementById('tourPlayPauseBtn').onclick = toggleSousChefPlayPause;
+document.getElementById('tourCloseBtn').onclick = returnToSousChef;
+scAudioEl = document.getElementById('tourAudio');
 
 (function boot(){
   fb.onAuthStateChanged(fb.auth, async (user)=>{
