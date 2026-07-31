@@ -1792,13 +1792,13 @@ async function loadRecipes(){
   try{
     const list = await db.list('recipe:');
     if(!list || !list.keys || list.keys.length === 0){ recipes = []; render(); return; }
-    const items = [];
-    for(const key of list.keys){
+    const results = await Promise.all(list.keys.map(async key=>{
       try{
         const r = await db.get(key);
-        if(r && r.value) items.push(normalize(JSON.parse(r.value)));
-      }catch(e){ console.error('Failed to load', key, e); }
-    }
+        return (r && r.value) ? normalize(JSON.parse(r.value)) : null;
+      }catch(e){ console.error('Failed to load', key, e); return null; }
+    }));
+    const items = results.filter(Boolean);
     items.sort((a,b)=> (b.addedAt||0) - (a.addedAt||0));
     recipes = items;
   }catch(e){
@@ -2312,13 +2312,13 @@ async function addToGroceryList(r, btnEl){
 async function loadGroceryItems(){
   const list = await db.list('grocery:');
   if(!list || !list.keys) return [];
-  const items = [];
-  for(const key of list.keys){
+  const results = await Promise.all(list.keys.map(async key=>{
     try{
       const r = await db.get(key);
-      if(r && r.value) items.push({ id: key.slice('grocery:'.length), ...JSON.parse(r.value) });
-    }catch(e){}
-  }
+      return (r && r.value) ? { id: key.slice('grocery:'.length), ...JSON.parse(r.value) } : null;
+    }catch(e){ return null; }
+  }));
+  const items = results.filter(Boolean);
   items.sort((a,b)=> (a.addedAt||0) - (b.addedAt||0));
   return items;
 }
