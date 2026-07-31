@@ -804,7 +804,10 @@ const db = {
     const [kind, id] = key.split(':');
     const col = kind === 'recipe' ? recipesCol() : groceryCol();
     const snap = await fb.getDoc(fb.doc(col, id));
-    return snap.exists() ? { key, value: JSON.stringify(snap.data()) } : null;
+    if(!snap.exists()) return null;
+    const data = snap.data();
+    data.id = id; // always the real Firestore document id, regardless of what (if anything) was saved in the data itself
+    return { key, value: JSON.stringify(data) };
   },
   async set(key, value){
     await userReady;
