@@ -581,7 +581,7 @@
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <button id="homeHelpBtn" style="background:#FAF6EA; border:2px solid var(--line); width:38px; height:38px; border-radius:50%; font-size:16px; cursor:pointer; flex-shrink:0;">❓</button>
-        <div class="sun-badge"><span>💪</span></div>
+        <div class="sun-badge" id="sousChefBadge" title="Sous Chef" style="cursor:pointer;"><span>👨‍🍳</span></div>
       </div>
     </div>
     <div class="tabs" id="tabs"></div>
@@ -3102,6 +3102,7 @@ function renderSousChefGrid(){
 }
 
 document.getElementById('sousChefMenuBtn').onclick = () => showScreen('sous-chef');
+document.getElementById('sousChefBadge').onclick = () => showScreen('sous-chef');
 document.getElementById('sousChefPlayAllBtn').onclick = () => playModule(0, true);
 document.getElementById('tourPlayPauseBtn').onclick = toggleSousChefPlayPause;
 document.getElementById('tourCloseBtn').onclick = returnToSousChef;
