@@ -110,6 +110,47 @@
   .tab:active{ transform:scale(0.95); }
   .tab.active{ color:#fff; }
 
+  /* ---------- Guided tour ---------- */
+  @keyframes tourPulse{
+    0%{ box-shadow:0 0 0 0 rgba(255,138,101,0.55); }
+    70%{ box-shadow:0 0 0 10px rgba(255,138,101,0); }
+    100%{ box-shadow:0 0 0 0 rgba(255,138,101,0); }
+  }
+  .tour-highlight-active{
+    outline:3px solid var(--tangerine, #FF8A65);
+    outline-offset:3px;
+    border-radius:14px;
+    animation:tourPulse 1.4s ease-out infinite;
+    position:relative;
+    z-index:60;
+  }
+  .tour-bar{
+    position:fixed; bottom:96px; left:50%; transform:translateX(-50%);
+    z-index:200; display:flex; align-items:center; gap:10px;
+    background:rgba(42,33,64,0.92); backdrop-filter:blur(10px);
+    padding:10px 10px 10px 16px; border-radius:100px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
+    max-width:92vw;
+  }
+  .tour-bar.hidden{ display:none; }
+  .tour-caption{
+    position:fixed; bottom:150px; left:50%; transform:translateX(-50%);
+    z-index:200; max-width:88vw; text-align:center;
+    background:#fff; color:var(--ink); font-size:13.5px; font-weight:700;
+    padding:10px 16px; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.18);
+  }
+  .tour-caption.hidden{ display:none; }
+  .tour-btn{
+    background:var(--tangerine, #FF8A65); color:#fff; border:none; border-radius:100px;
+    padding:8px 16px; font-weight:800; font-size:13px; cursor:pointer;
+    font-family:'Nunito',sans-serif; white-space:nowrap;
+  }
+  .tour-progress{ color:rgba(255,255,255,0.7); font-size:11.5px; font-weight:700; white-space:nowrap; }
+  .tour-close{
+    background:rgba(255,255,255,0.12); border:none; color:#fff; width:26px; height:26px;
+    border-radius:50%; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+
   /* ---------- Cards ---------- */
   .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; }
   .rcard{
@@ -543,7 +584,7 @@
         <div class="sun-badge"><span>💪</span></div>
       </div>
     </div>
-    <div class="tabs" id="tabs"></div>
+    <div class="tabs" id="tabs" data-tour="home-tabs"></div>
   </div>
   <div class="grid" id="grid"></div>
 </div>
@@ -599,7 +640,7 @@
 <!-- INVITE -->
 <div class="screen" id="screen-invite">
   <div class="topbar"><div class="greet"><h1>Invite</h1></div></div>
-  <div class="invite-card">
+  <div class="invite-card" data-tour="invite-card">
     <div class="big">🎉</div>
     <h2>Invite someone</h2>
     <p>Enter their email — we'll build a personal link that signs them in and sets up their own profile.</p>
@@ -637,7 +678,8 @@
   </div>
 
   <div class="menu-item" id="helpMenuBtn"><span class="ic">🎓</span> How to use Recipe Box</div>
-  <div class="menu-item" id="groceryMenuBtn"><span class="ic">🛒</span> Grocery List</div>
+  <div class="menu-item" id="tourMenuBtn"><span class="ic">🎬</span> Take the guided tour</div>
+  <div class="menu-item" id="groceryMenuBtn" data-tour="grocery-menu-btn"><span class="ic">🛒</span> Grocery List</div>
   <div class="menu-item" id="inboxMenuBtn"><span class="ic">📥</span> Shared with you <span id="inboxBadge" style="display:none;"></span></div>
   <div class="menu-item" id="contactsMenuBtn"><span class="ic">👥</span> My Contacts</div>
   <div class="menu-item" id="importMenuBtn"><span class="ic">📲</span> Import recipes</div>
@@ -820,7 +862,7 @@
 <div class="navbar">
   <button class="navbtn active" data-screen="home"><span class="ic">🏠</span>Home</button>
   <button class="navbtn" data-screen="profile"><span class="ic">👤</span>Profile</button>
-  <button class="navbtn addbtn" data-screen="add"><span class="ic">＋</span></button>
+  <button class="navbtn addbtn" data-screen="add" data-tour="add-btn"><span class="ic">＋</span></button>
   <button class="navbtn" data-screen="invite"><span class="ic">🎉</span>Invite</button>
   <button class="navbtn" data-screen="menu"><span class="ic">☰</span>Menu</button>
 </div>
@@ -1002,7 +1044,8 @@ async function ensureUserProfile(user){
             const data = docSnap.data();
             const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
             batch.set(fb.doc(fb.firestore, 'users', user.uid, 'recipes', newId), {
-              ...data, favorite: false, sharedFromUid: inviteUid, sharedFromName: inviter.name
+              ...data, favorite: false, sharedFromUid: inviteUid, sharedFromName: inviter.name,
+              ownerUid: data.ownerUid || inviteUid, ownerName: data.ownerName || inviter.name
             });
           });
           await batch.commit();
@@ -1416,7 +1459,10 @@ async function renderInbox(){
     const it = items.find(i=>i.id===id);
     row.querySelector('.accept-btn').onclick = async ()=>{
       const newId = 'r' + Date.now() + Math.random().toString(36).slice(2,7);
-      const data = { ...it.recipe, favorite:false, sharedFromUid: it.fromUid, sharedFromName: it.fromName };
+      const data = {
+        ...it.recipe, favorite:false, sharedFromUid: it.fromUid, sharedFromName: it.fromName,
+        ownerUid: it.recipe.ownerUid || it.fromUid, ownerName: it.recipe.ownerName || it.fromName
+      };
       delete data.id;
       await fb.setDoc(fb.doc(recipesCol(), newId), data);
       await fb.deleteDoc(fb.doc(inboxCol(), id));
@@ -1564,6 +1610,14 @@ function normalize(r){
   if(typeof r.macrosEstimated !== 'boolean') r.macrosEstimated = false;
   if(typeof r.sourceUrl !== 'string') r.sourceUrl = null;
   if(typeof r.importedFrom !== 'string') r.importedFrom = null;
+  if(!r.ownerUid){
+    // Backfills recipes saved before ownership tracking existed, and stamps
+    // brand-new recipes at creation (normalize() runs on both paths). Copies
+    // made via invite/"Send to" always arrive with ownerUid already set, so
+    // this never overwrites a preserved original owner.
+    r.ownerUid = currentUser.uid;
+    r.ownerName = (currentProfile && currentProfile.name) || 'You';
+  }
   return r;
 }
 
@@ -2076,7 +2130,7 @@ async function loadRecipes(){
 function renderTabs(){
   const cats = ["All", "❤️ Favorites", ...CATS];
   const contributors = Array.from(new Set(
-    recipes.filter(r => r.sharedFromName).map(r => r.sharedFromName)
+    recipes.filter(r => r.ownerUid && r.ownerUid !== currentUser.uid).map(r => r.ownerName)
   )).sort();
   tabsEl.innerHTML = '';
   cats.forEach(c=>{
@@ -2109,15 +2163,24 @@ function renderTabs(){
   }
 }
 
+function attributionBadge(r){
+  const isMine = r.ownerUid === currentUser.uid;
+  if(isMine) return `<div class="qualifiers" style="margin-bottom:6px;">👤 Yours</div>`;
+  const ownerName = escapeHtml(r.ownerName || 'Someone');
+  const forwarded = r.sharedFromName && r.sharedFromName !== r.ownerName;
+  const label = forwarded ? `🎁 ${ownerName}'s · via ${escapeHtml(r.sharedFromName)}` : `🎁 from ${ownerName}`;
+  return `<div class="qualifiers" style="margin-bottom:6px;">${label}</div>`;
+}
+
 function render(){
   renderTabs();
   let filtered;
   if(activeFilter === "All") filtered = recipes;
   else if(activeFilter === "❤️ Favorites") filtered = recipes.filter(r => r.favorite);
-  else if(activeFilter === "person:__mine__") filtered = recipes.filter(r => !r.sharedFromName);
+  else if(activeFilter === "person:__mine__") filtered = recipes.filter(r => r.ownerUid === currentUser.uid);
   else if(activeFilter.startsWith && activeFilter.startsWith('person:')) {
     const who = activeFilter.slice('person:'.length);
-    filtered = recipes.filter(r => r.sharedFromName === who);
+    filtered = recipes.filter(r => r.ownerName === who);
   }
   else filtered = recipes.filter(r => r.categories.includes(activeFilter));
   grid.innerHTML = '';
@@ -2139,7 +2202,7 @@ function render(){
     const ingredientsHtml = (r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
     const instructionsHtml = (r.instructions||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('');
     const imgHtml = r.image ? `<img class="rcard-img" src="${r.image}" alt="">` : '';
-    const fromBadge = r.sharedFromName ? `<div class="qualifiers" style="margin-bottom:6px;">🎁 from ${escapeHtml(r.sharedFromName)}</div>` : '';
+    const fromBadge = attributionBadge(r);
     card.innerHTML = `
       ${imgHtml}
       <button class="heart">${r.favorite ? '❤️' : '🤍'}</button>
@@ -2836,6 +2899,116 @@ async function initAppAfterSignIn(){
   refreshTrashBadge();
 }
 
+/* ---------- Guided tour ---------- */
+// Pre-recorded narration (Voicebox, generated once offline — see /audio/tour).
+// Playback never calls Voicebox or any local server; these are static files.
+const TOUR_STEPS = [
+  { id: "home", screen: "home", highlight: "home-tabs", audio: "audio/tour/home.wav",
+    caption: "Your recipe library, filtered by category, favorites, or who added it." },
+  { id: "add-recipe", screen: "home", highlight: "add-btn", audio: "audio/tour/add-recipe.wav",
+    caption: "Paste text, a link, or a PDF — it's sorted and filed automatically." },
+  { id: "cook-mode", screen: "home", highlight: null, audio: "audio/tour/cook-mode.wav",
+    caption: "Open any recipe and tap Cook Mode for hands-free, step-by-step cooking." },
+  { id: "grocery-list", screen: "menu", highlight: "grocery-menu-btn", audio: "audio/tour/grocery-list.wav",
+    caption: "Everything you add to a list lands here — tap to check off at the store." },
+  { id: "invite-sharing", screen: "invite", highlight: "invite-card", audio: "audio/tour/invite-sharing.wav",
+    caption: "Invite family, choose full or empty library, and share individual recipes." },
+];
+const TOUR_STEP_GAP_MS = 700;
+
+let tourAudioEl = null;
+let tourStarted = false;
+let tourPlaying = false;
+let tourIndex = 0;
+let tourGapTimer = null;
+
+function tourEl(id){ return document.getElementById(id); }
+
+function clearTourHighlight(){
+  document.querySelectorAll('.tour-highlight-active').forEach(el => el.classList.remove('tour-highlight-active'));
+}
+
+function applyTourHighlight(highlightKey){
+  clearTourHighlight();
+  if(!highlightKey) return;
+  const target = document.querySelector(`[data-tour="${highlightKey}"]`);
+  if(target){
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('tour-highlight-active');
+  }
+}
+
+function updateTourBarUI(){
+  const bar = tourEl('tourBar');
+  const caption = tourEl('tourCaption');
+  if(!tourStarted){
+    bar.classList.add('hidden');
+    caption.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+  caption.classList.remove('hidden');
+  const step = TOUR_STEPS[tourIndex];
+  caption.textContent = step.caption;
+  tourEl('tourPlayPauseBtn').textContent = tourPlaying ? '⏸' : '▶';
+  tourEl('tourProgress').textContent = `${tourIndex + 1} / ${TOUR_STEPS.length}`;
+}
+
+function stopTour(){
+  clearTimeout(tourGapTimer);
+  if(tourAudioEl){ tourAudioEl.pause(); tourAudioEl.onended = null; }
+  tourStarted = false;
+  tourPlaying = false;
+  tourIndex = 0;
+  clearTourHighlight();
+  updateTourBarUI();
+}
+
+function beginTourStepPlayback(i){
+  const step = TOUR_STEPS[i];
+  showScreen(step.screen);
+  setTimeout(() => {
+    applyTourHighlight(step.highlight);
+    tourAudioEl.src = step.audio;
+    tourAudioEl.currentTime = 0;
+    tourAudioEl.onended = () => playTourStep(i + 1);
+    tourAudioEl.play();
+    tourPlaying = true;
+    updateTourBarUI();
+  }, TOUR_STEP_GAP_MS);
+}
+
+function playTourStep(i){
+  if(i >= TOUR_STEPS.length){ stopTour(); return; }
+  tourIndex = i;
+  tourStarted = true;
+  updateTourBarUI();
+  clearTimeout(tourGapTimer);
+  tourGapTimer = setTimeout(() => beginTourStepPlayback(i), 0);
+}
+
+function startTour(){
+  showScreen(TOUR_STEPS[0].screen);
+  playTourStep(0);
+}
+
+function toggleTourPlayPause(){
+  if(!tourStarted) return;
+  if(tourPlaying){
+    tourAudioEl.pause();
+    tourPlaying = false;
+  } else {
+    tourAudioEl.play();
+    tourPlaying = true;
+  }
+  updateTourBarUI();
+}
+
+document.getElementById('tourMenuBtn').onclick = () => { showScreen('home'); startTour(); };
+document.getElementById('tourPlayPauseBtn').onclick = toggleTourPlayPause;
+document.getElementById('tourCloseBtn').onclick = stopTour;
+tourAudioEl = document.getElementById('tourAudio');
+
 (function boot(){
   fb.onAuthStateChanged(fb.auth, async (user)=>{
     if(user){
@@ -2854,5 +3027,15 @@ async function initAppAfterSignIn(){
 })();
 
 </script>
+
+<!-- GUIDED TOUR -->
+<audio id="tourAudio" preload="none"></audio>
+<div class="tour-caption hidden" id="tourCaption"></div>
+<div class="tour-bar hidden" id="tourBar">
+  <button class="tour-btn" id="tourPlayPauseBtn">▶</button>
+  <span class="tour-progress" id="tourProgress"></span>
+  <button class="tour-close" id="tourCloseBtn" title="End tour">✕</button>
+</div>
+
 </body>
 </html>
