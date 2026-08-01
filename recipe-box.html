@@ -34,7 +34,7 @@
     --card:#FFFFFF;
     --line:#E8DFC9;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
   html,body{height:100%;}
   body{
     margin:0;
@@ -305,6 +305,9 @@
     padding:10px 8px calc(10px + env(safe-area-inset-bottom));
     box-shadow:0 -4px 20px rgba(42,33,64,0.06);
     z-index:10;
+    transform:translateZ(0);
+    -webkit-transform:translateZ(0);
+    -webkit-backface-visibility:hidden;
   }
   .navbtn{
     background:none; border:none; cursor:pointer;
@@ -696,6 +699,7 @@
   <div class="topbar"><div class="greet"><h1>How to use Recipe Box</h1><p>A walk-through of everything, tab by tab</p></div></div>
   <div class="invite-card" style="text-align:left; margin-bottom:16px;">
     <button class="pill-btn copy" id="helpReadBtn" style="width:100%;">🔊 Read this aloud</button>
+    <audio id="helpAudio" preload="none"></audio>
   </div>
   <div id="helpContent">
 
@@ -2087,34 +2091,39 @@ document.getElementById('homeHelpBtn').onclick = ()=>{
   stopHelpReading();
   showScreen('help');
 };
+// Pre-recorded narration (Voicebox, generated once offline — see /audio/help).
+// One clip per section, chained in the same order they appear in the DOM.
+// Playback never calls Voicebox or any local server; these are static files.
+const HELP_AUDIO_ORDER = [
+  "overview", "home", "add-recipe", "recipe-card", "cook-mode",
+  "grocery-list", "profile", "invite", "shared-with-you", "contacts",
+  "import-recipes", "recently-deleted", "backups",
+];
 let helpReading = false;
+let helpAudioEl = null;
 function updateHelpReadBtn(){
   const btn = document.getElementById('helpReadBtn');
   btn.textContent = helpReading ? '⏸️ Stop reading' : '🔊 Read this aloud';
 }
 function stopHelpReading(){
-  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  if(helpAudioEl){ helpAudioEl.pause(); helpAudioEl.onended = null; }
   helpReading = false;
   updateHelpReadBtn();
 }
+function playHelpSection(i){
+  if(i >= HELP_AUDIO_ORDER.length){ stopHelpReading(); return; }
+  helpAudioEl.src = `audio/help/${HELP_AUDIO_ORDER[i]}.wav`;
+  helpAudioEl.currentTime = 0;
+  helpAudioEl.onended = () => playHelpSection(i + 1);
+  helpAudioEl.play();
+}
 document.getElementById('helpReadBtn').onclick = ()=>{
-  if(!('speechSynthesis' in window)){ showToast('Reading aloud isn\'t supported in this browser'); return; }
   if(helpReading){ stopHelpReading(); return; }
-  window.speechSynthesis.cancel();
-  const sections = document.querySelectorAll('#helpContent .help-section');
-  const utterances = Array.from(sections).map(sec => {
-    const u = new SpeechSynthesisUtterance(sec.innerText);
-    u.rate = 1;
-    return u;
-  });
-  const last = utterances[utterances.length - 1];
-  if(last){
-    last.onend = ()=>{ helpReading = false; updateHelpReadBtn(); };
-  }
-  utterances.forEach(u => window.speechSynthesis.speak(u));
   helpReading = true;
   updateHelpReadBtn();
+  playHelpSection(0);
 };
+helpAudioEl = document.getElementById('helpAudio');
 
 async function loadRecipes(){
   try{
