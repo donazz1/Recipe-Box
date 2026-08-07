@@ -1366,6 +1366,12 @@ function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const el = document.getElementById('screen-'+name);
   if(el) el.classList.add('active');
+  // Switching screens swaps which element is display:block, but the window's
+  // scroll position carries over from whatever it was on the previous screen.
+  // If that leftover position is deeper than the new screen's content, there's
+  // nowhere further to scroll — it looks "stuck" even though the screen is
+  // fine. Always land at the top of a freshly-shown screen.
+  window.scrollTo(0, 0);
   if(name === 'invite') setupInvite();
   if(name === 'profile') updateProfile();
   if(name === 'grocery') renderGrocery();
