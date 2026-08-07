@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Recipe Box</title>
+<style>
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#FBF8F2; color:#241F1A;
+    font-family:'Nunito',-apple-system,sans-serif; line-height:1.65;
+  }
+  .wrap{ max-width:640px; margin:0 auto; padding:48px 22px 80px; }
+  h1{ font-family:Georgia,'Fraunces',serif; font-size:28px; margin:0 0 6px; }
+  .updated{ color:#7A7468; font-size:13px; font-weight:700; margin:0 0 32px; }
+  h2{ font-family:Georgia,'Fraunces',serif; font-size:19px; margin:36px 0 10px; }
+  p, li{ font-size:15px; }
+  ul{ padding-left:22px; }
+  li{ margin-bottom:8px; }
+  a{ color:#E0622A; }
+  .note{
+    background:#FFFFFF; border:1px solid #E8DFC9; border-radius:14px;
+    padding:16px 18px; font-size:13.5px; color:#7A7468; margin-top:40px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Recipe Box — Privacy Policy</h1>
+  <p class="updated">Last updated August 6, 2026</p>
+
+  <p>Recipe Box is a personal recipe manager built for family use. This page explains what information the app collects, how it's used, and how you can remove it.</p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><strong>Account info:</strong> the email address and password you sign up with, handled by Firebase Authentication (Google).</li>
+    <li><strong>Your content:</strong> recipes you add — titles, ingredients, instructions, categories, notes, macros, and any photos you attach.</li>
+    <li><strong>Your grocery list</strong> — items you've added from recipes.</li>
+    <li><strong>Contacts:</strong> the names and email addresses of people you've connected with inside the app, so you can share recipes with them.</li>
+  </ul>
+
+  <h2>How it's stored</h2>
+  <p>All of the above is stored in Google Firebase (Firestore and Authentication) under your own account. Recipe Box does not run its own servers to hold your data.</p>
+
+  <h2>Who else sees it</h2>
+  <ul>
+    <li><strong>Nobody, by default.</strong> Your recipes are private to your account unless you explicitly share them.</li>
+    <li>When you invite someone or use "Send to…," the specific recipes you choose become visible to that person, exactly as shown in the app at the time you do it.</li>
+    <li>We do not sell, rent, or share your data with advertisers. There are no ads and no analytics or tracking SDKs in this app.</li>
+  </ul>
+
+  <h2>Other services this app uses</h2>
+  <ul>
+    <li><strong>Anthropic (Claude):</strong> when you add a recipe from pasted text, a link, or a PDF, that content is sent directly from your device to Anthropic's API — using an API key you provide yourself — to extract the recipe's structure. Anthropic's own privacy terms govern that request.</li>
+    <li><strong>Resend, via a small Google Cloud Run function:</strong> used only to send password-reset emails. No recipe content passes through this — just your email address and a reset link.</li>
+  </ul>
+
+  <h2>Deleting your data</h2>
+  <p>You can permanently delete your account at any time from inside the app: <strong>Profile → Delete my account</strong>. This immediately and permanently deletes your account, every recipe you've added, your grocery list, and your contact list. It cannot be undone. Recipes you previously shared with someone else remain in their own library, since that's a separate copy under their account.</p>
+
+  <h2>Children</h2>
+  <p>Recipe Box is intended for family use and is not directed at children under 13 as a standalone product.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If this policy changes, the "last updated" date above will change with it.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy or your data can be sent to [add your contact email here].</p>
+
+  <div class="note">This page is hosted as a static file alongside the Recipe Box app itself and reflects what the app actually does as of the date above.</div>
+</div>
+</body>
+</html>
