@@ -638,6 +638,26 @@
     </div>
     <div class="status" id="shareModeStatus" style="text-align:left; margin-top:8px;"></div>
   </div>
+  <div class="profile-card" style="text-align:left; padding:20px;">
+    <h2 style="font-size:16px; margin-bottom:6px; color:var(--berry);">⚠️ Delete my account</h2>
+    <p style="margin:0 0 14px; font-size:12.5px;">Permanently deletes your account, your recipes, grocery list, and contacts. This can't be undone.</p>
+    <button class="menu-item danger" id="deleteAccountBtn" style="justify-content:center; border-radius:12px;">Delete my account</button>
+  </div>
+</div>
+
+<!-- DELETE ACCOUNT CONFIRM -->
+<div class="send-overlay" id="deleteAccountOverlay">
+  <div class="send-sheet">
+    <h3>⚠️ Delete your account?</h3>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">This permanently deletes your account, every recipe, your grocery list, and your contacts. It cannot be undone. Recipes you've shared with others stay in their library.</p>
+    <div style="text-align:left; font-size:12.5px; font-weight:800; color:var(--ink-soft); margin-bottom:6px;">Enter your password to confirm</div>
+    <input type="password" id="deleteAccountPassword" placeholder="Password" style="width:100%; padding:12px 14px; border-radius:12px; border:2px solid var(--line); font-family:'Nunito',sans-serif; font-size:14px; font-weight:700; margin-bottom:12px;">
+    <div style="text-align:left; font-size:12.5px; font-weight:800; color:var(--ink-soft); margin-bottom:6px;">Type DELETE to confirm</div>
+    <input type="text" id="deleteAccountTyped" placeholder="DELETE" style="width:100%; padding:12px 14px; border-radius:12px; border:2px solid var(--line); font-family:'Nunito',sans-serif; font-size:14px; font-weight:700; margin-bottom:12px;">
+    <div class="status" id="deleteAccountStatus" style="margin-bottom:10px;"></div>
+    <button class="pill-btn" id="deleteAccountConfirmBtn" style="width:100%; background:var(--berry); margin-bottom:8px;">Permanently delete my account</button>
+    <button class="act-btn" id="deleteAccountCancelBtn" style="width:100%;">Cancel</button>
+  </div>
 </div>
 
 <!-- INVITE -->
@@ -889,7 +909,8 @@
   import {
     getAuth, onAuthStateChanged, signOut,
     signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail,
-    setPersistence, indexedDBLocalPersistence, browserLocalPersistence
+    setPersistence, indexedDBLocalPersistence, browserLocalPersistence,
+    deleteUser, reauthenticateWithCredential, EmailAuthProvider
   } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -948,6 +969,16 @@
         console.error('Custom reset sender failed, falling back to Firebase default sender:', fnErr);
         await sendPasswordResetEmail(auth, email);
       }
+    },
+
+    // Re-proves identity (Firebase requires a "recent" login for account
+    // deletion) then permanently deletes the Auth user. Firestore data must
+    // be deleted separately, BEFORE calling this — once the Auth user is
+    // gone, the session can no longer write/delete under security rules.
+    async reauthAndDeleteAuthUser(password){
+      const cred = EmailAuthProvider.credential(auth.currentUser.email, password);
+      await reauthenticateWithCredential(auth.currentUser, cred);
+      await deleteUser(auth.currentUser);
     }
   };
 </script>
@@ -1600,6 +1631,56 @@ async function setShareMode(empty){
   statusEl2.className = 'status ok';
 }
 
+/* ---------- Delete account ---------- */
+async function deleteAllUserFirestoreData(){
+  const subcollections = ['recipes', 'grocery', 'trash', 'contacts', 'inbox'];
+  for(const name of subcollections){
+    const snaps = await fb.getDocs(fb.collection(fb.firestore, 'users', currentUser.uid, name));
+    const docs = snaps.docs || [];
+    for(let i = 0; i < docs.length; i += 450){
+      const batch = fb.writeBatch(fb.firestore);
+      docs.slice(i, i + 450).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+  await fb.deleteDoc(fb.doc(fb.firestore, 'users', currentUser.uid));
+}
+
+document.getElementById('deleteAccountBtn').onclick = ()=>{
+  document.getElementById('deleteAccountPassword').value = '';
+  document.getElementById('deleteAccountTyped').value = '';
+  document.getElementById('deleteAccountStatus').textContent = '';
+  document.getElementById('deleteAccountOverlay').classList.add('open');
+};
+document.getElementById('deleteAccountCancelBtn').onclick = ()=>{
+  document.getElementById('deleteAccountOverlay').classList.remove('open');
+};
+document.getElementById('deleteAccountConfirmBtn').onclick = async ()=>{
+  const password = document.getElementById('deleteAccountPassword').value;
+  const typed = document.getElementById('deleteAccountTyped').value.trim();
+  const statusEl4 = document.getElementById('deleteAccountStatus');
+  if(!password){ statusEl4.textContent = 'Enter your password.'; statusEl4.className = 'status err'; return; }
+  if(typed !== 'DELETE'){ statusEl4.textContent = 'Type DELETE exactly to confirm.'; statusEl4.className = 'status err'; return; }
+  const btn = document.getElementById('deleteAccountConfirmBtn');
+  const origText = btn.textContent;
+  btn.textContent = 'Deleting…'; btn.disabled = true;
+  try{
+    // Order matters: wipe Firestore data while still authenticated, THEN
+    // delete the Auth user — once that succeeds the session can no longer
+    // write/delete anything under the security rules.
+    await deleteAllUserFirestoreData();
+    await fb.reauthAndDeleteAuthUser(password);
+    document.getElementById('deleteAccountOverlay').classList.remove('open');
+  }catch(e){
+    console.error('Account deletion failed:', e);
+    statusEl4.textContent = e && e.code === 'auth/invalid-credential'
+      ? 'Wrong password.'
+      : 'Something went wrong — try again.';
+    statusEl4.className = 'status err';
+    btn.textContent = origText; btn.disabled = false;
+  }
+};
+
 document.getElementById('clearAllBtn').onclick = async ()=>{
   if(recipes.length === 0){ showToast('Nothing to clear'); return; }
   if(!confirm(`Move all ${recipes.length} recipes to Recently Deleted? They'll be recoverable there for ${TRASH_RETENTION_DAYS} days.`)) return;
@@ -2115,7 +2196,7 @@ function playHelpSection(i){
   helpAudioEl.src = `audio/help/${HELP_AUDIO_ORDER[i]}.wav`;
   helpAudioEl.currentTime = 0;
   helpAudioEl.onended = () => playHelpSection(i + 1);
-  helpAudioEl.play();
+  helpAudioEl.play().catch(err => console.error('Help narration play failed:', err));
 }
 document.getElementById('helpReadBtn').onclick = ()=>{
   if(helpReading){ stopHelpReading(); return; }
@@ -3066,6 +3147,12 @@ function returnToSousChef(){
 function playModule(i, chain){
   if(i >= SOUS_CHEF_MODULES.length){ returnToSousChef(); return; }
   clearBeatTimers();
+  // Fully stop and detach the previous clip before starting a new one.
+  // Reassigning .src on an element that's still mid-decode (e.g. the user
+  // taps a new walkthrough while a previous one is still playing) leaves an
+  // unhandled play() rejection and can leave WKWebView's media pipeline in
+  // a bad state — this is what caused the freeze during testing.
+  if(scAudioEl){ scAudioEl.onended = null; scAudioEl.pause(); }
   const mod = SOUS_CHEF_MODULES[i];
   scIndex = i;
   scChainMode = chain;
@@ -3077,7 +3164,7 @@ function playModule(i, chain){
   setTimeout(() => {
     scAudioEl.src = mod.audio;
     scAudioEl.currentTime = 0;
-    scAudioEl.play();
+    scAudioEl.play().catch(err => console.error('Sous Chef audio play failed:', err));
     mod.beats.forEach(b => { scBeatTimers.push(setTimeout(b.run, b.at)); });
     scAudioEl.onended = () => {
       if(chain && i + 1 < SOUS_CHEF_MODULES.length){
@@ -3092,7 +3179,7 @@ function playModule(i, chain){
 function toggleSousChefPlayPause(){
   if(!scStarted) return;
   if(scPlaying){ scAudioEl.pause(); scPlaying = false; }
-  else { scAudioEl.play(); scPlaying = true; }
+  else { scAudioEl.play().catch(err => console.error('Sous Chef audio play failed:', err)); scPlaying = true; }
   updateSousChefBarUI();
 }
 
