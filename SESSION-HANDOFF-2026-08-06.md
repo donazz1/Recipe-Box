@@ -25,10 +25,10 @@ A private family recipe manager. Single-file web app (`recipe-box.html`) hosted 
 ## 3. Current git state (as of this handoff)
 
 - `origin/main` is at commit `80d94f9` ("RB Sous Chef Icon + Intro Update").
-- **Local is 2 commits ahead, NOT YET PUSHED:**
+- **Local is 3 commits ahead, NOT YET PUSHED:**
   - `78260bb` "RB Help Voice + Nav Bar Fix Update"
   - `108b58b` "RB Sous Chef Audio Freeze Fix" (the bug fix from tonight, see §7)
-- **`privacy.html` exists on disk but has never been committed at all** (untracked file). Needs `git add privacy.html` + commit + push.
+  - `d61c64d` "RB Privacy Page + Session Handoff Doc" (adds `privacy.html` and this file)
 - **Action needed:** push all of the above via GitHub Desktop before any of it is live or testable in the wrapper (the wrapper loads the live site, not local files).
 
 ## 4. Features built this session (chronological)
@@ -154,7 +154,7 @@ In `playModule(i, chain)` (the Sous Chef engine), the shared `<audio>` element's
 
 ## 10. Immediate next steps, in priority order
 
-1. **Push pending work live**: commit `privacy.html` (currently untracked — needs `git add`), then push all pending commits (`78260bb`, `108b58b`, plus the new privacy.html commit) via GitHub Desktop.
+1. **Push pending work live**: all three pending commits (`78260bb`, `108b58b`, `d61c64d`) are already committed locally — just push via GitHub Desktop.
 2. **Fill in the real contact email** in `privacy.html` (currently a placeholder).
 3. **Re-verify the Sous Chef freeze fix** — force-quit and relaunch the wrapper app (picks up the pushed fix automatically since it loads the live site), then deliberately try to re-trigger the freeze (tap between walkthroughs quickly, interrupt one mid-playback). If it still happens, get the real console error via Safari's Web Inspector (Safari → Develop → [Simulator] → Recipe Box) this time, since that wasn't captured before this handoff.
 4. **Test Import recipes** (Menu → Import recipes → file picker) — never tested, explicitly flagged as must-work.
