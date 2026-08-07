@@ -34,7 +34,12 @@
     --card:#FFFFFF;
     --line:#E8DFC9;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  /* touch-action:manipulation (kills the double-tap-zoom delay on taps) is
+     scoped to actual tappable controls only, not every element — applying
+     it universally interfered with WKWebView's native scroll gesture
+     recognition and broke scrolling on screens with a lot of content. */
+  button, a, .tab, .navbtn, .menu-item, .pill-btn, input, .heart, .rcard{ touch-action:manipulation; }
   html,body{height:100%;}
   body{
     margin:0;
