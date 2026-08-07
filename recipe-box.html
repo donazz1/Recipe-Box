@@ -40,7 +40,13 @@
      it universally interfered with WKWebView's native scroll gesture
      recognition and broke scrolling on screens with a lot of content. */
   button, a, .tab, .navbtn, .menu-item, .pill-btn, input, .heart, .rcard{ touch-action:manipulation; }
-  html,body{height:100%;}
+  /* No explicit height:100% here on purpose — body already has min-height:100vh
+     below, which covers "at least one full screen" without capping how tall
+     the box can grow. An explicit height (as opposed to min-height) clamps
+     the element's own box at that value once content overflows it, even with
+     overflow:visible — the overflow still paints, but the box responsible for
+     scrolling never grows to include it. That's what was breaking scroll on
+     content-heavy screens like Sous Chef. */
   body{
     margin:0;
     background:
